@@ -12,6 +12,7 @@
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
 
 \begin{document}
 
@@ -26,28 +27,50 @@ Arjun Roy (\textit{arjun.roy@uzh.ch}) \\}
 
 \maketitle
 
+\begin{abstract}
+The rapid advancement of text-to-speech (TTS) and voice conversion technologies has significantly increased the realism of synthetic speech, raising serious security risks related to fraud, identity theft, and misinformation. 
+This project focuses on the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing and evaluating three distinct deep learning architectures. 
+
+We approach the problem from two perspectives: visual analysis of audio spectrograms and temporal analysis of acoustic features. 
+We develop a Convolutional Neural Network (CNN) with attention mechanisms and a Vision Transformer (ViT) to process Mel-spectrograms as images, alongside a Bidirectional Long Short-Term Memory (Bi-LSTM) network that processes Mel-frequency cepstral coefficients (MFCCs) as time-series data. 
+
+Utilizing the ASVspoof 2021 dataset \cite{asvspoof2021}, we train and assess these models to determine the most effective approach for detecting synthetic artifacts. 
+The study aims to provide a robust comparative analysis of these architectures, achieve acceptable performance on ASVspoof 2021 evaluation metrics, and demonstrate model robustness across different synthesis methods.
+\end{abstract}
 
 \section{Introduction}
-This is a quick introduction to the project \cite{wang2020asvspoof}.
+
+Developments of the synthetic speech generation has evolved greatly in recent years. Advanced text-to-speech (TTS) and voice conversion models, such as ElevenLabs' Flash and Turbo models \cite{elevenlabs2025}, Tortoise TTS \cite{betker2023tortoise}, and GPT-SoVITS \cite{rvc2024gptsovits}, are now capable of producing highly realistic human-like speech. While these technologies offer significant benefits for accessibility and entertainment, their ability to clone voices from as little as a few seconds of reference audio presents substantial security challenges. The normalization of these powerful tools has lowered the barrier for malicious actors to commit fraud, spread misinformation, and impersonate individuals through voice spoofing attacks.
+
+This project addresses the critical need for automated systems capable of distinguishing between authentic (bonafide) and AI-generated (spoof) speech. The core problem is formulated as a binary classification task: given an input audio sample, the system must determine whether it was produced by a human voice or synthesized by an algorithm.
+
+Our objective is to evaluate and compare the effectiveness of different deep learning methods for this detection task. We investigate two primary methodological approaches. The first treats audio analysis as a computer vision problem, converting raw waveforms into Mel-spectrograms to be processed by Convolutional Neural Networks (CNNs) and Vision Transformers (ViTs). This approach aims to identify visual artifacts in the frequency-time domain that are characteristic of synthesis algorithms. The second approach treats the problem as a time-series analysis task, utilizing Recurrent Neural Networks (specifically Bidirectional LSTMs) to process sequences of Mel-frequency cepstral coefficients (MFCCs). By comparing these architectures on the standardized ASVspoof 2021 dataset, we aim to identify the strengths and limitations of each modality in detecting modern speech synthesis attacks.
 
 
-\section{Overview}
-This is a quick overview of the project.
+\section{Methodology}
+% * 3.1 Data Processing:
+% * Describe the Spectrogram Pipeline: Conversion to Mel-Spectrograms ($128 \times 224$), Normalization.
+% * Describe the MFCC Pipeline: Extraction of 39 features (13 static + $\Delta$ + $\Delta\Delta$) for the RNN.
+% * 3.2 Architectures:
+% * CNN: Explain the 4-layer design with attention for capturing local artifacts in spectrograms.
+% * Vision Transformer (ViT): Explain the use of patch embeddings to capture global dependencies across the frequency-time domain.
+% * RNN (Bi-LSTM): Explain the use of Bidirectional LSTM to model temporal continuity and sequential anomalies in speech.
+This study employs two distinct data representations—visual spectrograms and temporal acoustic features—to drive three different deep learning architectures.
 
 
-\section{Adopted Methods}
+\section{Experimental Setup}
+% * Dataset: Mention ASVspoof 2021, the 90/10 class imbalance, and how you handled it (Weighted Cross-Entropy Loss).
+% * Training Details: Mention Data Augmentation (Time/Freq masking for images, Gaussian noise for audio), Optimizer (Adam), and Early Stopping.
 This is a quick overview of the adopted methods.
 
-
-\section{Examples}
-This is a quick overview of the examples.
-
-
 \section{Results}
+% * Performance: A compact table comparing Accuracy, Precision, Recall, and F1-Score for all three models.
+% * Analysis: Discuss why one model performed better. (e.g., "Did the ViT's attention mechanism capture synthetic artifacts better than the CNN's local filters?" or "Did the RNN struggle with long-term dependencies?")
 This is a quick overview of the results.
 
 
 \section{Conclusions}
+%    * Final summary of which approach is most viable for real-world deployment.
 This is a quick overview of the conclusions.
 
 \bibliographystyle{plain}
