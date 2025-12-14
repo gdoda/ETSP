@@ -1,5 +1,15 @@
 # Detecting AI-Generated Speech: Synthetic Voice Classification
 
+## Overview
+
+The pipeline implements a binary classification system to distinguish between **bonafide** (real human speech) and **spoof** (AI-generated/synthesized speech) audio samples. It trains and evaluates three different deep learning architectures:
+
+| Model   | Input Type                  | Architecture                                        |
+| ------- | --------------------------- | --------------------------------------------------- |
+| **CNN** | Mel-spectrograms (images)   | 4-layer Convolutional Neural Network with attention |
+| **ViT** | Mel-spectrograms (images)   | Vision Transformer with 6 encoder layers            |
+| **RNN** | MFCC features (time-series) | Bidirectional LSTM with attention mechanism         |
+
 ## Requirementes
 
 You can run this project either locally or through Google Colab by using [Colab_Run.ipynb](/Colab_Run.ipynb).
@@ -14,25 +24,31 @@ Project dependencies are provided in [pyproject.toml](pyproject.toml). We use `u
 ```bash
 .
 ├── README.md
+├── Colab_Run.ipynb
 ├── data
 │   ├── mel_spectrograms
 │   │       └── ***.png
 │   └── raw_audio
 │           └── ***.flac
+├── docs
+│   └── IMPLEMENTATION.md
 ├── main.py
 ├── models
+│   └── ***_best.pth
 ├── pyproject.toml
 ├── report
+│   └── main.pdf
 ├── src
 │   ├── audio_processor.py
 │   ├── config.py
 │   ├── data_loader.py
+│   ├── metrics.py
 │   ├── models.py
 │   └── trainer.py
 └── uv.lock
 ```
 
-## Review configuration and parameters in [config.py](/src/config.py)
+### Review configuration and parameters in [config.py](/src/config.py). Explaination of the content is available in the implementation details section: [docs/IMPLEMENTATION.md](/docs/IMPLEMENTATION.md)
 
 ## Run the complete project
 

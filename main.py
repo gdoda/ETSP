@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import json
+from pathlib import Path
 from src.audio_processor import AudioProcessor
 from src.data_loader import AudioDataLoader
 from src.models import CustomCNN, VisionTransformer, AudioRNN
@@ -20,22 +21,19 @@ def main():
     processor = AudioProcessor()
     data_loader = AudioDataLoader()
 
-    # Process eval dataset
-    print("1. Processing ASVspoof2021_LA_eval dataset...")
+    print("1. Processing dataset...")
 
     if not os.path.exists(config.raw_audio_dir):
-        print(f"ERROR: Dataset not found at {config.raw_audio_dir}")
-        print(f"Please ensure your .flac files are in: {config.raw_audio_dir}")
+        print(
+            f"ERROR: Dataset not found at {config.raw_audio_dir}. Flac files expected at: {config.raw_audio_dir}"
+        )
         return
-
-    # Check if we have enough files
-    from pathlib import Path
 
     flac_files = list(Path(config.raw_audio_dir).rglob("*.flac"))
     print(f"Found {len(flac_files)} .flac files in dataset")
 
     if len(flac_files) == 0:
-        print("No .flac files found! Please check your dataset.")
+        print("No .flac files found. Check your dataset at: {config.raw_audio_dir}")
         return
 
     if os.path.exists(config.metadata_file):
@@ -87,7 +85,7 @@ def main():
     print("6. Generating final report...")
     generate_comprehensive_report(cnn_metrics, vit_metrics, rnn_metrics, processed_data)
 
-    print("7. PROJECT COMPLETED SUCCESSFULLY!")
+    print("7. PROJECT COMPLETED")
     print(f"All models trained and saved in '{config.model_dir}/' folder")
     print(f"Final report saved: '{config.report_file}'")
 
@@ -95,7 +93,7 @@ def main():
 def generate_comprehensive_report(cnn_metrics, vit_metrics, rnn_metrics, data):
     report = {
         "project_title": "Synthetic Voice Detection System",
-        "dataset_used": "ASVspoof2021_LA_eval",
+        "dataset_used": "ASVspoof2021 dataset",
         "total_samples": len(data),
         "models_trained": [
             "CNN (Convolutional Neural Network)",
