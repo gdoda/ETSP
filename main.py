@@ -1,4 +1,11 @@
 import os
+
+# Matplotlib setup for Colab
+os.environ.pop("MPLBACKEND", None)
+import matplotlib
+
+matplotlib.use("Agg")
+
 import json
 from src.audio_processor import AudioProcessor
 from src.data_loader import AudioDataLoader

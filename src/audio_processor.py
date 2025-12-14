@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import librosa
+import torchaudio
 import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
@@ -51,8 +52,12 @@ class AudioProcessor:
         # Print class distribution
         bonafide_count = sum(1 for v in self.labels_map.values() if v == 0)
         spoof_count = sum(1 for v in self.labels_map.values() if v == 1)
-        print(f"  Bonafide: {bonafide_count} ({100*bonafide_count/len(self.labels_map):.1f}%)")
-        print(f"  Spoof: {spoof_count} ({100*spoof_count/len(self.labels_map):.1f}%)")
+        print(
+            f"  Bonafide: {bonafide_count} ({100 * bonafide_count / len(self.labels_map):.1f}%)"
+        )
+        print(
+            f"  Spoof: {spoof_count} ({100 * spoof_count / len(self.labels_map):.1f}%)"
+        )
 
         return self.labels_map
 
@@ -83,7 +88,20 @@ class AudioProcessor:
             target_length = int(config.sample_rate * config.duration)
 
         try:
-            audio, sr = librosa.load(audio_path, sr=config.sample_rate)
+            waveform, sr = torchaudio.load(audio_path)
+
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+
+            # Resample if necessary
+            if sr != config.sample_rate:
+                resampler = torchaudio.transforms.Resample(sr, config.sample_rate)
+                waveform = resampler(waveform)
+
+            # Convert to numpy
+            audio = waveform.squeeze().numpy()
+
+            # Pad or trim to target length
             if len(audio) > target_length:
                 audio = audio[:target_length]
             else:
@@ -212,7 +230,9 @@ class AudioProcessor:
             )
 
         if skipped_no_label > 0:
-            print(f"Warning: Skipped {skipped_no_label} files without labels in protocol")
+            print(
+                f"Warning: Skipped {skipped_no_label} files without labels in protocol"
+            )
 
         print(f"Completed! Processed {len(processed_data)} files from eval dataset")
 
