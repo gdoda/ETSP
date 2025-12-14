@@ -125,7 +125,7 @@ class ModelTrainer:
         epochs = epochs or config.epochs
         print(f"Training {self.model_name} on {self.device}")
 
-        best_val_acc = 0.0
+        best_balanced_acc = 0.0
         best_metrics = {}
         patience_counter = 0
         patience_limit = config.patience_limit
@@ -141,6 +141,8 @@ class ModelTrainer:
             self.train_accuracies.append(train_acc)
             self.val_accuracies.append(val_acc)
 
+            balanced_acc = spoof_metrics['balanced_accuracy']
+
             print(f"Epoch {epoch + 1}/{epochs}")
             print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
             print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
@@ -150,7 +152,7 @@ class ModelTrainer:
             # Print ASVspoof-specific metrics
             print(
                 f"EER: {spoof_metrics['eer']:.2f}%, "
-                f"Balanced Acc: {spoof_metrics['balanced_accuracy']:.4f}, "
+                f"Balanced Acc: {balanced_acc:.4f}, "
                 f"ROC-AUC: {spoof_metrics['roc_auc']:.4f}"
             )
             print(
@@ -158,8 +160,9 @@ class ModelTrainer:
                 f"Spoof Recall: {spoof_metrics['spoof_recall']:.4f}"
             )
 
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
+            # Use balanced accuracy for model selection (better for imbalanced data)
+            if balanced_acc > best_balanced_acc:
+                best_balanced_acc = balanced_acc
 
                 # Store best metrics (including ASVspoof metrics)
                 best_metrics = {
@@ -178,7 +181,7 @@ class ModelTrainer:
 
                 self.save_model()
                 patience_counter = 0
-                print(f"New best model saved with val_acc: {val_acc:.4f}")
+                print(f"New best model saved with balanced_acc: {balanced_acc:.4f}")
             else:
                 patience_counter += 1
 
@@ -187,6 +190,10 @@ class ModelTrainer:
                 break
 
             print("-" * 60)
+
+        # Print final summary of best model performance
+        if best_metrics:
+            print_metrics(best_metrics, prefix=f"{self.model_name.upper()} Best Model")
 
         return best_metrics
 
