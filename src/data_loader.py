@@ -69,7 +69,9 @@ class SpectrogramDataset(Dataset):
             return img, torch.tensor(label, dtype=torch.long)
         except Exception as e:
             print(f"Error loading image {idx}: {e}")
-            dummy_img = torch.zeros(config.in_channels, config.img_size, config.img_size)
+            dummy_img = torch.zeros(
+                config.in_channels, config.img_size, config.img_size
+            )
             return dummy_img, torch.tensor(0, dtype=torch.long)
 
 
@@ -95,7 +97,10 @@ class MFCCDataset(Dataset):
             else:
                 original_name = item.get("original_name", "")
                 if not original_name:
-                    original_name = os.path.splitext(os.path.basename(item["file_path"]))[0] + ".flac"
+                    original_name = (
+                        os.path.splitext(os.path.basename(item["file_path"]))[0]
+                        + ".flac"
+                    )
                 audio_path = AudioProcessor.get_raw_audio_path(original_name)
 
             # Load audio
@@ -240,4 +245,6 @@ class AudioDataLoader:
         bonafide = sum(1 for d in data if d["label"] == 0)
         spoof = sum(1 for d in data if d["label"] == 1)
         total = len(data)
-        print(f"    {split_name}: bonafide={bonafide} ({100*bonafide/total:.1f}%), spoof={spoof} ({100*spoof/total:.1f}%)")
+        print(
+            f"    {split_name}: bonafide={bonafide} ({100 * bonafide / total:.1f}%), spoof={spoof} ({100 * spoof / total:.1f}%)"
+        )

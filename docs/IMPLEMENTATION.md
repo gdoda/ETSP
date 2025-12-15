@@ -150,6 +150,7 @@ data/
 ```
 
 **trial_metadata.txt format:**
+
 ```
 speaker_id  audio_filename  codec  transmission  attack_type  label  trimming  subset
 LA_0001     LA_E_1000001    -      -             -            bonafide  -       eval
@@ -158,12 +159,13 @@ LA_0002     LA_E_1000002    -      -             A07          spoof     -       
 
 ### 3.2 Label Mapping
 
-| Label | Class | Description |
-|-------|-------|-------------|
-| 0 | bonafide | Real human speech |
-| 1 | spoof | AI-generated/synthesized speech |
+| Label | Class    | Description                     |
+| ----- | -------- | ------------------------------- |
+| 0     | bonafide | Real human speech               |
+| 1     | spoof    | AI-generated/synthesized speech |
 
 **Class Distribution:** The dataset is highly imbalanced (~90% spoof, ~10% bonafide). This is handled through:
+
 - Class weights in loss function: `[5.0, 0.56]` (bonafide, spoof)
 - Stratified train/val/test splitting
 
@@ -181,6 +183,7 @@ data/
 ```
 
 **processed_metadata.json structure:**
+
 ```json
 [
   {
@@ -203,13 +206,13 @@ Handles all audio processing operations.
 
 #### Key Methods:
 
-| Method | Description |
-|--------|-------------|
-| `load_protocol_labels()` | Parses ASVspoof protocol file to extract ground truth labels |
-| `load_audio()` | Loads .flac files, resamples to 16kHz, pads/trims to 4 seconds |
-| `create_mel_spectrogram()` | Converts waveform to 128-band log-mel spectrogram |
-| `extract_mfcc()` | Extracts 13 MFCCs + delta + delta-delta (39 features total) |
-| `process_dataset()` | Main method: processes all files and saves spectrograms |
+| Method                     | Description                                                    |
+| -------------------------- | -------------------------------------------------------------- |
+| `load_protocol_labels()`   | Parses ASVspoof protocol file to extract ground truth labels   |
+| `load_audio()`             | Loads .flac files, resamples to 16kHz, pads/trims to 4 seconds |
+| `create_mel_spectrogram()` | Converts waveform to 128-band log-mel spectrogram              |
+| `extract_mfcc()`           | Extracts 13 MFCCs + delta + delta-delta (39 features total)    |
+| `process_dataset()`        | Main method: processes all files and saves spectrograms        |
 
 #### Audio Processing Parameters:
 
@@ -257,6 +260,7 @@ Manages dataset creation and batching.
 #### Dataset Classes:
 
 **SpectrogramDataset** (for CNN/ViT):
+
 - Loads PNG spectrogram images
 - Resizes to 224×224 pixels
 - Converts to grayscale tensor (1 channel)
@@ -266,6 +270,7 @@ Manages dataset creation and batching.
 - Normalizes with mean=0.485, std=0.229
 
 **MFCCDataset** (for RNN):
+
 - Loads raw .flac audio on-the-fly
 - Extracts MFCC features (39 dimensions)
 - Applies waveform augmentation during training:
@@ -291,14 +296,14 @@ Handles the training loop for all models.
 
 #### Training Configuration:
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `learning_rate` | 0.001 | Initial learning rate |
-| `weight_decay` | 1e-4 | L2 regularization |
-| `epochs` | 50 | Maximum training epochs |
-| `patience_limit` | 10 | Early stopping patience |
-| `scheduler_patience` | 5 | LR reduction patience |
-| `scheduler_factor` | 0.5 | LR reduction factor |
+| Parameter            | Value | Description             |
+| -------------------- | ----- | ----------------------- |
+| `learning_rate`      | 0.001 | Initial learning rate   |
+| `weight_decay`       | 1e-4  | L2 regularization       |
+| `epochs`             | 50    | Maximum training epochs |
+| `patience_limit`     | 10    | Early stopping patience |
+| `scheduler_patience` | 5     | LR reduction patience   |
+| `scheduler_factor`   | 0.5   | LR reduction factor     |
 
 #### Training Loop:
 
@@ -420,6 +425,7 @@ Input: (batch, 1, 224, 224)
 ```
 
 **ViT Parameters:**
+
 - Patch size: 16×16
 - Number of patches: (224/16)² = 196
 - Embedding dimension: 768
@@ -468,6 +474,7 @@ Input: (batch, n_frames, 39)  # ~126 frames for 4s audio
 ```
 
 **MFCC Input Features (39 dimensions):**
+
 - 13 static MFCC coefficients
 - 13 delta (first derivative)
 - 13 delta-delta (second derivative)
@@ -486,6 +493,7 @@ criterion = nn.CrossEntropyLoss(weight=class_weights)
 ```
 
 The weights compensate for the ~90/10 class imbalance:
+
 - Bonafide (minority): weight = 5.0
 - Spoof (majority): weight = 0.56
 
@@ -514,6 +522,7 @@ models/
 ```
 
 Each checkpoint contains:
+
 - `model_state_dict`: Model weights
 - `optimizer_state_dict`: Optimizer state
 - `train_accuracies`: Training accuracy history
@@ -525,14 +534,15 @@ Each checkpoint contains:
 
 During training, the following metrics are computed:
 
-| Metric | Description |
-|--------|-------------|
-| **Accuracy** | Overall classification accuracy |
-| **Precision** | Weighted precision across classes |
-| **Recall** | Weighted recall across classes |
-| **F1-Score** | Weighted harmonic mean of precision and recall |
+| Metric        | Description                                    |
+| ------------- | ---------------------------------------------- |
+| **Accuracy**  | Overall classification accuracy                |
+| **Precision** | Weighted precision across classes              |
+| **Recall**    | Weighted recall across classes                 |
+| **F1-Score**  | Weighted harmonic mean of precision and recall |
 
 Additional metrics available in `metrics.py`:
+
 - **EER (Equal Error Rate)**: Standard ASVspoof metric
 - **Balanced Accuracy**: Average of per-class recalls
 - **ROC AUC**: Area under ROC curve
@@ -546,71 +556,71 @@ All configuration parameters are centralized in `src/config.py`:
 
 ### Paths
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `raw_audio_dir` | `data/raw_audio` | Input .flac files |
-| `spectrogram_dir` | `data/mel_spectrograms` | Output spectrogram images |
-| `metadata_file` | `data/processed_metadata.json` | Processing metadata |
-| `protocol_file` | `data/trial_metadata.txt` | ASVspoof labels |
-| `model_dir` | `models` | Saved model checkpoints |
-| `report_file` | `report/project_report.json` | Final report |
+| Parameter         | Default                        | Description               |
+| ----------------- | ------------------------------ | ------------------------- |
+| `raw_audio_dir`   | `data/raw_audio`               | Input .flac files         |
+| `spectrogram_dir` | `data/mel_spectrograms`        | Output spectrogram images |
+| `metadata_file`   | `data/processed_metadata.json` | Processing metadata       |
+| `protocol_file`   | `data/trial_metadata.txt`      | ASVspoof labels           |
+| `model_dir`       | `models`                       | Saved model checkpoints   |
+| `report_file`     | `models/project_report.json`   | Final report              |
 
 ### Audio Processing
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `sample_rate` | 16000 | Target sample rate (Hz) |
-| `duration` | 4.0 | Audio clip length (seconds) |
-| `n_fft` | 2048 | FFT window size |
-| `hop_length` | 512 | Hop between frames |
-| `n_mels` | 128 | Mel frequency bands |
-| `fmin` | 20 | Minimum frequency (Hz) |
-| `fmax` | 8000 | Maximum frequency (Hz) |
-| `n_mfcc` | 13 | Number of MFCC coefficients |
+| Parameter     | Default | Description                 |
+| ------------- | ------- | --------------------------- |
+| `sample_rate` | 16000   | Target sample rate (Hz)     |
+| `duration`    | 4.0     | Audio clip length (seconds) |
+| `n_fft`       | 2048    | FFT window size             |
+| `hop_length`  | 512     | Hop between frames          |
+| `n_mels`      | 128     | Mel frequency bands         |
+| `fmin`        | 20      | Minimum frequency (Hz)      |
+| `fmax`        | 8000    | Maximum frequency (Hz)      |
+| `n_mfcc`      | 13      | Number of MFCC coefficients |
 
 ### Data Loading
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `batch_size` | 32 | Training batch size |
-| `train_ratio` | 0.7 | Training split ratio |
-| `val_ratio` | 0.15 | Validation split ratio |
-| `test_ratio` | 0.15 | Test split ratio |
-| `num_workers` | 2 | DataLoader workers |
-| `img_size` | 224 | Image resize dimension |
+| Parameter     | Default | Description            |
+| ------------- | ------- | ---------------------- |
+| `batch_size`  | 32      | Training batch size    |
+| `train_ratio` | 0.7     | Training split ratio   |
+| `val_ratio`   | 0.15    | Validation split ratio |
+| `test_ratio`  | 0.15    | Test split ratio       |
+| `num_workers` | 2       | DataLoader workers     |
+| `img_size`    | 224     | Image resize dimension |
 
 ### Data Augmentation
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `use_augmentation` | True | Enable augmentation |
-| `time_mask_param` | 30 | Max frames for time masking |
-| `freq_mask_param` | 20 | Max bins for freq masking |
-| `noise_factor` | 0.005 | Gaussian noise amplitude |
+| Parameter          | Default | Description                 |
+| ------------------ | ------- | --------------------------- |
+| `use_augmentation` | True    | Enable augmentation         |
+| `time_mask_param`  | 30      | Max frames for time masking |
+| `freq_mask_param`  | 20      | Max bins for freq masking   |
+| `noise_factor`     | 0.005   | Gaussian noise amplitude    |
 
 ### Model Architecture
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `num_classes` | 2 | Output classes (real/fake) |
-| `dropout_rate` | 0.3 | Dropout probability |
-| `cnn_channels` | [64,128,256,512] | CNN layer channels |
-| `vit_patch_size` | 16 | ViT patch dimensions |
-| `vit_embed_dim` | 768 | ViT embedding dimension |
-| `vit_depth` | 6 | ViT transformer layers |
-| `vit_num_heads` | 8 | ViT attention heads |
-| `rnn_hidden_size` | 256 | LSTM hidden dimension |
-| `rnn_num_layers` | 2 | LSTM layer count |
+| Parameter         | Default          | Description                |
+| ----------------- | ---------------- | -------------------------- |
+| `num_classes`     | 2                | Output classes (real/fake) |
+| `dropout_rate`    | 0.3              | Dropout probability        |
+| `cnn_channels`    | [64,128,256,512] | CNN layer channels         |
+| `vit_patch_size`  | 16               | ViT patch dimensions       |
+| `vit_embed_dim`   | 768              | ViT embedding dimension    |
+| `vit_depth`       | 6                | ViT transformer layers     |
+| `vit_num_heads`   | 8                | ViT attention heads        |
+| `rnn_hidden_size` | 256              | LSTM hidden dimension      |
+| `rnn_num_layers`  | 2                | LSTM layer count           |
 
 ### Training
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `learning_rate` | 0.001 | Initial learning rate |
-| `weight_decay` | 1e-4 | L2 regularization |
-| `epochs` | 50 | Maximum epochs |
-| `patience_limit` | 10 | Early stopping patience |
-| `class_weights` | [5.0, 0.56] | Loss class weights |
+| Parameter        | Default     | Description             |
+| ---------------- | ----------- | ----------------------- |
+| `learning_rate`  | 0.001       | Initial learning rate   |
+| `weight_decay`   | 1e-4        | L2 regularization       |
+| `epochs`         | 50          | Maximum epochs          |
+| `patience_limit` | 10          | Early stopping patience |
+| `class_weights`  | [5.0, 0.56] | Loss class weights      |
 
 ---
 
@@ -620,12 +630,12 @@ All configuration parameters are centralized in `src/config.py`:
 
 The notebook automates the complete setup and execution:
 
-| Cell | Purpose |
-|------|---------|
-| 1 | Mount Google Drive, install `uv` package manager |
-| 2 | Clone GitHub repository, create virtual environment |
-| 3 | Download/extract dataset (MAX_FILES=50000) |
-| 4 | Run `main.py` pipeline |
+| Cell | Purpose                                                                  |
+| ---- | ------------------------------------------------------------------------ |
+| 1    | Mount Google Drive, install `condacolab` (triggers runtime restart)      |
+| 2    | Clone GitHub repository, create conda environment from `environment.yml` |
+| 3    | Download/extract dataset (MAX_FILES=10000)                               |
+| 4    | Run `main.py` pipeline                                                   |
 
 ---
 
@@ -648,6 +658,7 @@ data/
 ```
 
 **project_report.json example:**
+
 ```json
 {
   "project_title": "Synthetic Voice Detection System",

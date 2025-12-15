@@ -12,47 +12,56 @@ class CustomCNN(nn.Module):
         channels = config.cnn_channels
 
         # CNN architecture
-        self.conv1 = nn.Conv2d(config.in_channels, channels[0], kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(
+            config.in_channels, channels[0], kernel_size=3, stride=1, padding=1
+        )
         self.bn1 = nn.BatchNorm2d(channels[0])
-        self.conv2 = nn.Conv2d(channels[0], channels[1], kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(
+            channels[0], channels[1], kernel_size=3, stride=1, padding=1
+        )
         self.bn2 = nn.BatchNorm2d(channels[1])
-        self.conv3 = nn.Conv2d(channels[1], channels[2], kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(
+            channels[1], channels[2], kernel_size=3, stride=1, padding=1
+        )
         self.bn3 = nn.BatchNorm2d(channels[2])
-        self.conv4 = nn.Conv2d(channels[2], channels[3], kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(
+            channels[2], channels[3], kernel_size=3, stride=1, padding=1
+        )
         self.bn4 = nn.BatchNorm2d(channels[3])
 
         self.attention = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(channels[3], channels[3], kernel_size=1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
         self.global_pool = nn.AdaptiveAvgPool2d(1)
         self.dropout = nn.Dropout(config.dropout_rate)
         self.classifier = nn.Linear(channels[3], config.num_classes)
-        
+
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
+
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
+
         x = F.relu(self.bn3(self.conv3(x)))
         x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
+
         x = F.relu(self.bn4(self.conv4(x)))
         x = F.max_pool2d(x, kernel_size=2, stride=2)
-        
+
         attention_weights = self.attention(x)
         x = x * attention_weights
-        
+
         x = self.global_pool(x)
         x = x.view(x.size(0), -1)
         x = self.dropout(x)
         x = self.classifier(x)
-        
+
         return x
+
 
 class VisionTransformer(nn.Module):
     def __init__(self):
@@ -71,49 +80,54 @@ class VisionTransformer(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, self.n_patches + 1, embed_dim))
 
         # Transformer encoder layers
-        self.blocks = nn.ModuleList([
-            nn.TransformerEncoderLayer(
-                d_model=embed_dim,
-                nhead=config.vit_num_heads,
-                dim_feedforward=int(embed_dim * config.vit_mlp_ratio),
-                dropout=config.vit_dropout,
-                activation='gelu'
-            ) for _ in range(config.vit_depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                nn.TransformerEncoderLayer(
+                    d_model=embed_dim,
+                    nhead=config.vit_num_heads,
+                    dim_feedforward=int(embed_dim * config.vit_mlp_ratio),
+                    dropout=config.vit_dropout,
+                    activation="gelu",
+                    batch_first=True,
+                )
+                for _ in range(config.vit_depth)
+            ]
+        )
 
         self.norm = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, config.num_classes)
 
         self._init_weights()
-    
+
     def _init_weights(self):
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
         nn.init.trunc_normal_(self.cls_token, std=0.02)
-    
+
     def forward(self, x):
         batch_size = x.shape[0]
-        
+
         # Patch embedding
         x = self.patch_embed(x)
         x = x.flatten(2).transpose(1, 2)
-        
+
         # Add class token
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
-        
+
         # Add positional embedding
         x = x + self.pos_embed
-        
+
         # Transformer blocks
         for block in self.blocks:
             x = block(x)
-        
+
         # Classification head
         x = self.norm(x)
         x = x[:, 0]  # Class token
         x = self.head(x)
-        
+
         return x
+
 
 class AudioRNN(nn.Module):
     """

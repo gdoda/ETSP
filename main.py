@@ -1,6 +1,8 @@
+"""Main entry point for synthetic voice detection pipeline."""
+
 import os
 
-# Matplotlib setup for Colab
+# Matplotlib backend setup
 os.environ.pop("MPLBACKEND", None)
 import matplotlib
 
@@ -8,144 +10,128 @@ matplotlib.use("Agg")
 
 import json
 from pathlib import Path
+
 from src.audio_processor import AudioProcessor
 from src.data_loader import AudioDataLoader
 from src.models import CustomCNN, VisionTransformer, AudioRNN
 from src.trainer import ModelTrainer
 from src.config import config
+from src.metrics import print_metrics_summary, print_model_comparison, generate_report
 
 
-def main():
-    print("=== SYNTHETIC VOICE DETECTION - EVAL DATASET ===")
-
-    processor = AudioProcessor()
-    data_loader = AudioDataLoader()
-
-    print("1. Processing dataset...")
-
+def load_or_process_data():
+    """Load existing processed data or process raw audio files."""
     if not os.path.exists(config.raw_audio_dir):
-        print(
-            f"ERROR: Dataset not found at {config.raw_audio_dir}. Flac files expected at: {config.raw_audio_dir}"
-        )
-        return
+        raise FileNotFoundError(f"Dataset not found at {config.raw_audio_dir}")
 
     flac_files = list(Path(config.raw_audio_dir).rglob("*.flac"))
-    print(f"Found {len(flac_files)} .flac files in dataset")
+    print(f"Found {len(flac_files)} .flac files")
 
     if len(flac_files) == 0:
-        print("No .flac files found. Check your dataset at: {config.raw_audio_dir}")
-        return
+        raise FileNotFoundError(f"No .flac files found in {config.raw_audio_dir}")
 
     if os.path.exists(config.metadata_file):
         with open(config.metadata_file, "r") as f:
-            processed_data = json.load(f)
-    else:
-        processed_data = processor.process_dataset(
-            input_dir=config.raw_audio_dir, output_dir=config.spectrogram_dir
-        )
-        with open(config.metadata_file, "w") as f:
-            json.dump(processed_data, f, indent=2)
+            return json.load(f)
 
-    print(f"Successfully processed {len(processed_data)} files")
-
-    # Create data loaders
-    print("2. Creating data loaders...")
-
-    # Loaders for CNN and ViT (Spectrogram Images)
-    print("   -> Creating Image Data Loaders (for CNN, ViT)...")
-    img_train_loader, img_val_loader, img_test_loader = data_loader.create_data_loaders(
-        processed_data, load_raw_audio=False
+    processor = AudioProcessor()
+    processed_data = processor.process_dataset(
+        input_dir=config.raw_audio_dir, output_dir=config.spectrogram_dir
     )
 
-    # Loaders for RNN (Raw Audio)
-    print("   -> Creating Raw Audio Data Loaders (for RNN)...")
-    audio_train_loader, audio_val_loader, audio_test_loader = (
-        data_loader.create_data_loaders(processed_data, load_raw_audio=True)
+    with open(config.metadata_file, "w") as f:
+        json.dump(processed_data, f, indent=2)
+
+    return processed_data
+
+
+def create_data_loaders(processed_data):
+    """Create train/val/test data loaders for all model types."""
+    loader = AudioDataLoader()
+
+    print("Creating data loaders...")
+    print("  Image loaders (CNN, ViT)...")
+    img_loaders = loader.create_data_loaders(processed_data, load_raw_audio=False)
+
+    print("  Audio loaders (RNN)...")
+    audio_loaders = loader.create_data_loaders(processed_data, load_raw_audio=True)
+
+    return img_loaders, audio_loaders
+
+
+def train_models(img_loaders, audio_loaders):
+    """Train all models and return their trainers, metrics, history, and predictions."""
+    img_train, img_val, img_test = img_loaders
+    audio_train, audio_val, audio_test = audio_loaders
+
+    models_config = [
+        ("CNN", CustomCNN(), img_train, img_val, img_test, config.learning_rate),
+        ("ViT", VisionTransformer(), img_train, img_val, img_test, config.vit_learning_rate),
+        ("RNN", AudioRNN(), audio_train, audio_val, audio_test, config.learning_rate),
+    ]
+
+    trainers = {}
+    val_metrics = {}
+    test_metrics = {}
+    training_history = {}
+    predictions = {}
+
+    for name, model, train_loader, val_loader, test_loader, lr in models_config:
+        print(f"\n{'=' * 60}")
+        print(f"Training {name}...")
+        print(f"{'=' * 60}")
+
+        trainer = ModelTrainer(model, train_loader, val_loader, name.lower(), learning_rate=lr)
+        val_metrics[name] = trainer.train()
+
+        print(f"\nEvaluating {name} on test set...")
+        test_metrics[name], predictions[name] = trainer.evaluate(test_loader, return_predictions=True)
+        print_metrics_summary(test_metrics[name], f"{name} Test Set")
+
+        # Collect training history for plotting
+        training_history[name] = trainer.get_training_history()
+        trainers[name] = trainer
+
+    return trainers, val_metrics, test_metrics, training_history, predictions
+
+
+def main():
+    """Run the complete synthetic voice detection pipeline."""
+    print("=" * 60)
+    print("  SYNTHETIC VOICE DETECTION PIPELINE")
+    print("=" * 60)
+
+    # Step 1: Data processing
+    print("\n[1/4] Processing dataset...")
+    processed_data = load_or_process_data()
+    print(f"Total samples: {len(processed_data)}")
+
+    # Step 2: Create data loaders
+    print("\n[2/4] Creating data loaders...")
+    img_loaders, audio_loaders = create_data_loaders(processed_data)
+
+    # Step 3: Train and evaluate models
+    print("\n[3/4] Training models...")
+    trainers, val_metrics, test_metrics, training_history, predictions = train_models(
+        img_loaders, audio_loaders
     )
 
-    # Train CNN Model
-    print("3. Training CNN Model...")
-    cnn_model = CustomCNN()
-    cnn_trainer = ModelTrainer(cnn_model, img_train_loader, img_val_loader, "cnn")
-    cnn_metrics = cnn_trainer.train()
+    # Print comparison
+    print_model_comparison(test_metrics)
 
-    # Train Vision Transformer
-    print("4. Training Vision Transformer...")
-    vit_model = VisionTransformer()
-    vit_trainer = ModelTrainer(vit_model, img_train_loader, img_val_loader, "vit")
-    vit_metrics = vit_trainer.train()
+    # Step 4: Generate report
+    print("\n[4/4] Generating report...")
+    generate_report(
+        val_metrics, test_metrics, len(processed_data),
+        training_history=training_history,
+        predictions=predictions
+    )
 
-    # Train RNN Model (using raw audio)
-    print("5. Training RNN Model...")
-    rnn_model = AudioRNN()
-    rnn_trainer = ModelTrainer(rnn_model, audio_train_loader, audio_val_loader, "rnn")
-    rnn_metrics = rnn_trainer.train()
-
-    # Generate comprehensive report
-    print("6. Generating final report...")
-    generate_comprehensive_report(cnn_metrics, vit_metrics, rnn_metrics, processed_data)
-
-    print("7. PROJECT COMPLETED")
-    print(f"All models trained and saved in '{config.model_dir}/' folder")
-    print(f"Final report saved: '{config.report_file}'")
-
-
-def generate_comprehensive_report(cnn_metrics, vit_metrics, rnn_metrics, data):
-    report = {
-        "project_title": "Synthetic Voice Detection System",
-        "dataset_used": "ASVspoof2021 dataset",
-        "total_samples": len(data),
-        "models_trained": [
-            "CNN (Convolutional Neural Network)",
-            "Vision Transformer (ViT)",
-            "RNN (Recurrent Neural Network)",
-        ],
-        "training_configuration": {
-            "epochs": config.epochs,
-            "batch_size": config.batch_size,
-            "learning_rate": config.learning_rate,
-            "input_features": f"Mel-spectrograms ({config.n_mels} bands) & Raw Audio",
-            "evaluation_metric": "Accuracy, Loss, F1-Score",
-        },
-        "model_performance": {
-            "CNN": {
-                "best_validation_accuracy": f"{cnn_metrics.get('accuracy', 0) * 100:.2f}%",
-                "best_epoch": cnn_metrics.get("epoch", 0),
-                "validation_loss": f"{cnn_metrics.get('loss', 0):.4f}",
-                "f1_score": f"{cnn_metrics.get('f1_score', 0):.4f}",
-            },
-            "Vision_Transformer": {
-                "best_validation_accuracy": f"{vit_metrics.get('accuracy', 0) * 100:.2f}%",
-                "best_epoch": vit_metrics.get("epoch", 0),
-                "validation_loss": f"{vit_metrics.get('loss', 0):.4f}",
-                "f1_score": f"{vit_metrics.get('f1_score', 0):.4f}",
-            },
-            "RNN": {
-                "best_validation_accuracy": f"{rnn_metrics.get('accuracy', 0) * 100:.2f}%",
-                "best_epoch": rnn_metrics.get("epoch", 0),
-                "validation_loss": f"{rnn_metrics.get('loss', 0):.4f}",
-                "f1_score": f"{rnn_metrics.get('f1_score', 0):.4f}",
-            },
-        },
-        "project_achievements": [
-            "Successfully implemented 3 different deep learning architectures",
-            "Trained on ASVspoof2021 benchmark dataset",
-            "Achieved synthetic voice detection capability",
-            "Built complete end-to-end ML pipeline",
-            "Included data augmentation and preprocessing",
-        ],
-        "technical_implementation": {
-            "data_preprocessing": "Audio normalization, Mel-spectrogram conversion, Data augmentation",
-            "model_architectures": f"CNN ({len(config.cnn_channels)} conv layers), ViT ({config.vit_depth} transformer layers), RNN (LSTM with attention)",
-            "training_strategy": "Cross-validation, Early stopping, Learning rate scheduling",
-            "evaluation_metrics": "Accuracy, Precision, Recall, F1-Score, Equal Error Rate",
-        },
-    }
-
-    with open(config.report_file, "w") as f:
-        json.dump(report, f, indent=2)
-
-    print(f"Report metadata file generated successfully: {config.report_file}")
+    print("\n" + "=" * 60)
+    print("  PIPELINE COMPLETED")
+    print("=" * 60)
+    print(f"Models saved: {config.model_dir}/")
+    print(f"Report saved: {config.report_file}")
 
 
 if __name__ == "__main__":
