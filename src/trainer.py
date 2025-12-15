@@ -207,15 +207,40 @@ class ModelTrainer:
             os.path.join(config.model_dir, f"{self.model_name}_best.pth"),
         )
 
-    def evaluate(self, test_loader):
+    def evaluate(self, test_loader, return_predictions=False):
         """
         Evaluate model on a test set.
 
         Args:
             test_loader: DataLoader for test data
+            return_predictions: If True, also return raw predictions for plotting
 
         Returns:
             dict: Evaluation metrics
+            If return_predictions=True, returns (metrics, predictions_dict)
         """
         labels, preds, proba = self._predict(test_loader)
-        return self._compute_metrics(labels, preds, proba)
+        metrics = self._compute_metrics(labels, preds, proba)
+
+        if return_predictions:
+            predictions = {
+                "y_true": labels.tolist(),
+                "y_pred": preds.tolist(),
+                "y_proba": proba.tolist(),
+            }
+            return metrics, predictions
+        return metrics
+
+    def get_training_history(self):
+        """
+        Get training history for plotting.
+
+        Returns:
+            dict: Training history with losses and accuracies per epoch
+        """
+        return {
+            "train_losses": self.train_losses,
+            "val_losses": self.val_losses,
+            "train_accuracies": self.train_accuracies,
+            "val_accuracies": self.val_accuracies,
+        }

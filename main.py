@@ -60,7 +60,7 @@ def create_data_loaders(processed_data):
 
 
 def train_models(img_loaders, audio_loaders):
-    """Train all models and return their trainers and metrics."""
+    """Train all models and return their trainers, metrics, history, and predictions."""
     img_train, img_val, img_test = img_loaders
     audio_train, audio_val, audio_test = audio_loaders
 
@@ -73,6 +73,8 @@ def train_models(img_loaders, audio_loaders):
     trainers = {}
     val_metrics = {}
     test_metrics = {}
+    training_history = {}
+    predictions = {}
 
     for name, model, train_loader, val_loader, test_loader, lr in models_config:
         print(f"\n{'=' * 60}")
@@ -83,12 +85,14 @@ def train_models(img_loaders, audio_loaders):
         val_metrics[name] = trainer.train()
 
         print(f"\nEvaluating {name} on test set...")
-        test_metrics[name] = trainer.evaluate(test_loader)
+        test_metrics[name], predictions[name] = trainer.evaluate(test_loader, return_predictions=True)
         print_metrics_summary(test_metrics[name], f"{name} Test Set")
 
+        # Collect training history for plotting
+        training_history[name] = trainer.get_training_history()
         trainers[name] = trainer
 
-    return trainers, val_metrics, test_metrics
+    return trainers, val_metrics, test_metrics, training_history, predictions
 
 
 def main():
@@ -108,14 +112,20 @@ def main():
 
     # Step 3: Train and evaluate models
     print("\n[3/4] Training models...")
-    trainers, val_metrics, test_metrics = train_models(img_loaders, audio_loaders)
+    trainers, val_metrics, test_metrics, training_history, predictions = train_models(
+        img_loaders, audio_loaders
+    )
 
     # Print comparison
     print_model_comparison(test_metrics)
 
     # Step 4: Generate report
     print("\n[4/4] Generating report...")
-    generate_report(val_metrics, test_metrics, len(processed_data))
+    generate_report(
+        val_metrics, test_metrics, len(processed_data),
+        training_history=training_history,
+        predictions=predictions
+    )
 
     print("\n" + "=" * 60)
     print("  PIPELINE COMPLETED")

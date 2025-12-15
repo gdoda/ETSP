@@ -1,16 +1,24 @@
 """Evaluation metrics and reporting for spoof detection."""
 
 import json
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.metrics import (
     balanced_accuracy_score,
     roc_auc_score,
     recall_score,
     roc_curve,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
 )
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
 
 from src.config import config
+
+# Plot styling
+COLORS = {"CNN": "#2ecc71", "ViT": "#3498db", "RNN": "#e74c3c"}
+plt.style.use("seaborn-v0_8-whitegrid")
 
 
 def calculate_eer(y_true, y_scores):
@@ -103,7 +111,8 @@ def print_model_comparison(model_metrics):
     print("=" * 70 + "\n")
 
 
-def generate_report(val_metrics, test_metrics, total_samples):
+def generate_report(val_metrics, test_metrics, total_samples,
+                    training_history=None, predictions=None):
     """
     Generate and save a JSON report.
 
@@ -111,6 +120,8 @@ def generate_report(val_metrics, test_metrics, total_samples):
         val_metrics: dict mapping model names to validation metrics
         test_metrics: dict mapping model names to test metrics
         total_samples: total number of samples in the dataset
+        training_history: dict mapping model names to training history (optional)
+        predictions: dict mapping model names to test predictions (optional)
     """
 
     def format_model_metrics(val_m, test_m):
@@ -171,7 +182,253 @@ def generate_report(val_metrics, test_metrics, total_samples):
         },
     }
 
+    # Add training history for plotting learning curves
+    if training_history:
+        report["training_history"] = training_history
+
+    # Add predictions for ROC curves and confusion matrices
+    if predictions:
+        report["predictions"] = predictions
+
     with open(config.report_file, "w") as f:
         json.dump(report, f, indent=2)
 
     print(f"Report saved: {config.report_file}")
+
+
+def plot_training_curves(training_history, save_path=None):
+    """
+    Plot training and validation curves for all models.
+
+    Args:
+        training_history: dict mapping model names to their training history
+                         Each history contains: train_losses, val_losses,
+                         train_accuracies, val_accuracies
+        save_path: Optional path to save the figure
+    """
+    fig, axes = plt.subplots(2, len(training_history), figsize=(5 * len(training_history), 8))
+
+    if len(training_history) == 1:
+        axes = axes.reshape(-1, 1)
+
+    for idx, (name, history) in enumerate(training_history.items()):
+        epochs = range(1, len(history["train_losses"]) + 1)
+        color = COLORS.get(name, "#333333")
+
+        # Loss plot
+        ax_loss = axes[0, idx]
+        ax_loss.plot(epochs, history["train_losses"], "-", color=color, label="Train", linewidth=2)
+        ax_loss.plot(epochs, history["val_losses"], "--", color=color, label="Val", linewidth=2)
+        ax_loss.set_xlabel("Epoch")
+        ax_loss.set_ylabel("Loss")
+        ax_loss.set_title(f"{name} - Loss")
+        ax_loss.legend()
+        ax_loss.set_xticks(epochs)
+
+        # Accuracy plot
+        ax_acc = axes[1, idx]
+        ax_acc.plot(epochs, history["train_accuracies"], "-", color=color, label="Train", linewidth=2)
+        ax_acc.plot(epochs, history["val_accuracies"], "--", color=color, label="Val", linewidth=2)
+        ax_acc.set_xlabel("Epoch")
+        ax_acc.set_ylabel("Accuracy")
+        ax_acc.set_title(f"{name} - Accuracy")
+        ax_acc.legend()
+        ax_acc.set_ylim(0, 1)
+        ax_acc.set_xticks(epochs)
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Training curves saved: {save_path}")
+
+    return fig
+
+
+def plot_roc_curves(predictions, save_path=None):
+    """
+    Plot ROC curves for all models.
+
+    Args:
+        predictions: dict mapping model names to their predictions
+                    Each contains: y_true, y_proba
+        save_path: Optional path to save the figure
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    for name, preds in predictions.items():
+        y_true = np.array(preds["y_true"])
+        y_proba = np.array(preds["y_proba"])
+
+        fpr, tpr, _ = roc_curve(y_true, y_proba)
+        auc = roc_auc_score(y_true, y_proba)
+        eer = calculate_eer(y_true, y_proba)
+
+        color = COLORS.get(name, "#333333")
+        ax.plot(fpr, tpr, color=color, linewidth=2,
+                label=f"{name} (AUC={auc:.3f}, EER={eer:.1f}%)")
+
+    ax.plot([0, 1], [0, 1], "k--", linewidth=1, label="Random")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("ROC Curves - Model Comparison")
+    ax.legend(loc="lower right")
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"ROC curves saved: {save_path}")
+
+    return fig
+
+
+def plot_confusion_matrices(predictions, save_path=None):
+    """
+    Plot confusion matrices for all models.
+
+    Args:
+        predictions: dict mapping model names to their predictions
+                    Each contains: y_true, y_pred
+        save_path: Optional path to save the figure
+    """
+    n_models = len(predictions)
+    fig, axes = plt.subplots(1, n_models, figsize=(5 * n_models, 4))
+
+    if n_models == 1:
+        axes = [axes]
+
+    class_names = ["Bonafide", "Spoof"]
+
+    for idx, (name, preds) in enumerate(predictions.items()):
+        y_true = np.array(preds["y_true"])
+        y_pred = np.array(preds["y_pred"])
+
+        cm = confusion_matrix(y_true, y_pred)
+        disp = ConfusionMatrixDisplay(cm, display_labels=class_names)
+        disp.plot(ax=axes[idx], cmap="Blues", colorbar=False)
+        axes[idx].set_title(f"{name}")
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Confusion matrices saved: {save_path}")
+
+    return fig
+
+
+def plot_metric_comparison(test_metrics, save_path=None):
+    """
+    Plot bar chart comparison of key metrics across models.
+
+    Args:
+        test_metrics: dict mapping model names to their test metrics
+        save_path: Optional path to save the figure
+    """
+    metrics_to_plot = [
+        ("balanced_accuracy", "Balanced Accuracy", True),
+        ("roc_auc", "ROC AUC", True),
+        ("eer", "EER (%)", False),  # Lower is better
+        ("bonafide_recall", "Bonafide Recall", True),
+        ("spoof_recall", "Spoof Recall", True),
+    ]
+
+    model_names = list(test_metrics.keys())
+    n_metrics = len(metrics_to_plot)
+    x = np.arange(len(model_names))
+    width = 0.7
+
+    fig, axes = plt.subplots(1, n_metrics, figsize=(3 * n_metrics, 4))
+
+    for idx, (metric_key, metric_label, higher_better) in enumerate(metrics_to_plot):
+        values = [test_metrics[name].get(metric_key, 0) for name in model_names]
+        colors = [COLORS.get(name, "#333333") for name in model_names]
+
+        bars = axes[idx].bar(x, values, width, color=colors)
+        axes[idx].set_ylabel(metric_label)
+        axes[idx].set_xticks(x)
+        axes[idx].set_xticklabels(model_names)
+        axes[idx].set_title(metric_label)
+
+        # Add value labels on bars
+        for bar, val in zip(bars, values):
+            height = bar.get_height()
+            axes[idx].annotate(
+                f"{val:.2f}" if metric_key != "eer" else f"{val:.1f}",
+                xy=(bar.get_x() + bar.get_width() / 2, height),
+                ha="center", va="bottom", fontsize=9
+            )
+
+        # Set appropriate y limits
+        if metric_key == "eer":
+            axes[idx].set_ylim(0, max(values) * 1.2 if max(values) > 0 else 50)
+        else:
+            axes[idx].set_ylim(0, 1.1)
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Metric comparison saved: {save_path}")
+
+    return fig
+
+
+def generate_all_plots(report_path=None, output_dir=None):
+    """
+    Generate all plots from saved report JSON.
+
+    Args:
+        report_path: Path to project_report.json (defaults to config.report_file)
+        output_dir: Directory to save plots (defaults to config.model_dir)
+
+    Returns:
+        dict of figure objects
+    """
+    report_path = report_path or config.report_file
+    output_dir = output_dir or config.model_dir
+
+    with open(report_path, "r") as f:
+        report = json.load(f)
+
+    figures = {}
+
+    # Training curves
+    if "training_history" in report:
+        figures["training_curves"] = plot_training_curves(
+            report["training_history"],
+            save_path=f"{output_dir}/training_curves.png"
+        )
+
+    # ROC curves and confusion matrices
+    if "predictions" in report:
+        figures["roc_curves"] = plot_roc_curves(
+            report["predictions"],
+            save_path=f"{output_dir}/roc_curves.png"
+        )
+        figures["confusion_matrices"] = plot_confusion_matrices(
+            report["predictions"],
+            save_path=f"{output_dir}/confusion_matrices.png"
+        )
+
+    # Metric comparison (reconstruct from model_performance)
+    test_metrics = {}
+    for name, perf in report["model_performance"].items():
+        test_metrics[name] = {
+            "balanced_accuracy": float(perf["test"]["balanced_accuracy"]),
+            "roc_auc": float(perf["test"]["roc_auc"]),
+            "eer": float(perf["test"]["eer"].replace("%", "")),
+            "bonafide_recall": float(perf["test"]["bonafide_recall"]),
+            "spoof_recall": float(perf["test"]["spoof_recall"]),
+        }
+
+    figures["metric_comparison"] = plot_metric_comparison(
+        test_metrics,
+        save_path=f"{output_dir}/metric_comparison.png"
+    )
+
+    print(f"\nAll plots saved to: {output_dir}/")
+    return figures

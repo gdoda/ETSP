@@ -1,4 +1,5 @@
 import os
+import warnings
 import numpy as np
 import librosa
 from PIL import Image
@@ -8,6 +9,10 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
 from src.config import config
+
+# Suppress librosa's audioread fallback warnings (PySoundFile doesn't support FLAC on all platforms)
+warnings.filterwarnings("ignore", message="PySoundFile failed")
+warnings.filterwarnings("ignore", message="librosa.core.audio.__audioread_load")
 
 multiprocessing.set_start_method("spawn", force=True)
 
