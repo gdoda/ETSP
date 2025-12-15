@@ -1,15 +1,15 @@
 import os
 import numpy as np
 import librosa
-import torchaudio
 from PIL import Image
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
-
 from src.config import config
+
+multiprocessing.set_start_method("spawn", force=True)
 
 
 class AudioProcessor:
@@ -90,18 +90,7 @@ class AudioProcessor:
             target_length = int(config.sample_rate * config.duration)
 
         try:
-            waveform, sr = torchaudio.load(audio_path)
-
-            if waveform.shape[0] > 1:
-                waveform = waveform.mean(dim=0, keepdim=True)
-
-            # Resample if necessary
-            if sr != config.sample_rate:
-                resampler = torchaudio.transforms.Resample(sr, config.sample_rate)
-                waveform = resampler(waveform)
-
-            # Convert to numpy
-            audio = waveform.squeeze().numpy()
+            audio, _ = librosa.load(audio_path, sr=config.sample_rate, mono=True)
 
             # Pad or trim to target length
             if len(audio) > target_length:
@@ -273,18 +262,8 @@ def _process_single_file(args):
     audio_path, img_path, label, target_length = args
 
     try:
-        # Load audio
-        waveform, sr = torchaudio.load(audio_path)
-
-        if waveform.shape[0] > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
-
-        # Resample if necessary
-        if sr != config.sample_rate:
-            resampler = torchaudio.transforms.Resample(sr, config.sample_rate)
-            waveform = resampler(waveform)
-
-        audio = waveform.squeeze().numpy()
+        # Load with librosa (automatically resamples and converts to mono)
+        audio, _ = librosa.load(audio_path, sr=config.sample_rate, mono=True)
 
         # Pad or trim to target length
         if len(audio) > target_length:
@@ -325,6 +304,5 @@ def _process_single_file(args):
             "label": label,
             "original_name": Path(audio_path).name,
         }
-    except Exception as general_error:
-        print(f"Error processing {audio_path}: {general_error}")
+    except Exception:
         return None

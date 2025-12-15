@@ -10,14 +10,14 @@ The pipeline implements a binary classification system to distinguish between **
 | **ViT** | Mel-spectrograms (images)   | Vision Transformer with 6 encoder layers            |
 | **RNN** | MFCC features (time-series) | Bidirectional LSTM with attention mechanism         |
 
-## Requirementes
+## Requirements
 
-You can run this project either locally or through Google Colab by using [Colab_Run.ipynb](/Colab_Run.ipynb).
+You can run this project either locally or through Google Colab by using the provided Jupyter notebook: [Colab_Run.ipynb](/Colab_Run.ipynb).
 
 If you run this locally, make sure to download [ASVspoof 2021 dataset](https://zenodo.org/records/4837263).
 Change the variable `raw_audio_dir` in [config.py](/src/config.py) to match the path where you extracted the raw audio files.
 
-Project dependencies are provided in [pyproject.toml](pyproject.toml). We use `uv` to manage dependencies.
+Project dependencies are managed with **conda**. See [environment.yml](environment.yml) for the full list.
 
 ## Directory structure
 
@@ -25,6 +25,7 @@ Project dependencies are provided in [pyproject.toml](pyproject.toml). We use `u
 .
 ├── README.md
 ├── Colab_Run.ipynb
+├── environment.yml
 ├── data
 │   ├── mel_spectrograms
 │   │       └── ***.png
@@ -35,7 +36,6 @@ Project dependencies are provided in [pyproject.toml](pyproject.toml). We use `u
 ├── main.py
 ├── models
 │   └── ***_best.pth
-├── pyproject.toml
 ├── report
 │   └── main.pdf
 ├── src
@@ -45,20 +45,25 @@ Project dependencies are provided in [pyproject.toml](pyproject.toml). We use `u
 │   ├── metrics.py
 │   ├── models.py
 │   └── trainer.py
-└── uv.lock
 ```
 
 ### Review configuration and parameters in [config.py](/src/config.py). Explaination of the content is available in the implementation details section: [docs/IMPLEMENTATION.md](/docs/IMPLEMENTATION.md)
 
 ## Run the complete project
 
-You can run the project locally as
+### Local Setup
 
 ```bash
-source .venv/bin/activate
+# Create and activate conda environment
+conda env create -f environment.yml
+conda activate etsp
+
+# Run the pipeline
 python main.py
 ```
 
-Or on Google Colab with the provided [notebook](/Colab_Run.ipynb).
+### Google Colab
+
+Use the provided [Colab_Run.ipynb](/Colab_Run.ipynb) notebook which handles all setup automatically.
 
 ### Monitor training progress (of RNN, CNN and ViT training)

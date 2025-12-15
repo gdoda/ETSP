@@ -131,6 +131,8 @@ class ModelTrainer:
         epochs = epochs or config.epochs
         print(f"Training {self.model_name} on {self.device}")
 
+        # Minimum threshold: 0.5 = random guessing, require better than random
+        min_balanced_acc = 0.55
         best_balanced_acc = 0.0
         best_metrics = {}
         patience_counter = 0
@@ -144,9 +146,15 @@ class ModelTrainer:
 
             self._print_epoch_summary(epoch, epochs, train_loss, train_acc, val_loss, val_metrics)
 
-            # Model selection based on balanced accuracy
-            if val_metrics["balanced_accuracy"] > best_balanced_acc:
-                best_balanced_acc = val_metrics["balanced_accuracy"]
+            balanced_acc = val_metrics["balanced_accuracy"]
+
+            # Warn if model is not learning (predicting single class)
+            if balanced_acc <= 0.5:
+                print(f"Warning: Model may be predicting single class (balanced_acc={balanced_acc:.4f})")
+
+            # Model selection: must beat previous best AND minimum threshold
+            if balanced_acc > best_balanced_acc and balanced_acc >= min_balanced_acc:
+                best_balanced_acc = balanced_acc
                 best_metrics = {**val_metrics, "loss": val_loss, "epoch": epoch + 1}
                 self.save_model()
                 patience_counter = 0
@@ -162,6 +170,8 @@ class ModelTrainer:
 
         if best_metrics:
             print_metrics_summary(best_metrics, f"{self.model_name.upper()} Best Validation")
+        else:
+            print(f"\nWarning: No model saved for {self.model_name} - never exceeded {min_balanced_acc:.0%} balanced accuracy")
 
         return best_metrics
 
