@@ -67,7 +67,8 @@ class Config:
     rnn_input_size = 39  # n_mfcc * 3 (static + delta + delta-delta) if use_mfcc_deltas
 
     # Training
-    learning_rate = 0.001
+    learning_rate = 0.001  # For CNN/RNN
+    vit_learning_rate = 1e-4  # For transformer
     weight_decay = 1e-4
     epochs = 50
     patience_limit = 10  # early stopping patience

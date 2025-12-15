@@ -14,12 +14,13 @@ from src.metrics import compute_all_metrics, print_metrics_summary
 class ModelTrainer:
     """Trainer for spoof detection models."""
 
-    def __init__(self, model, train_loader, val_loader, model_name="model"):
+    def __init__(self, model, train_loader, val_loader, model_name="model", learning_rate=None):
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.model_name = model_name
         self.device = config.device
+        self.learning_rate = learning_rate or config.learning_rate
 
         self.model.to(self.device)
         self._setup_training()
@@ -30,10 +31,11 @@ class ModelTrainer:
         class_weights = config.class_weights.to(self.device)
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         print(f"Using class weights: {config.class_weights.tolist()}")
+        print(f"Learning rate: {self.learning_rate}")
 
         self.optimizer = optim.Adam(
             self.model.parameters(),
-            lr=config.learning_rate,
+            lr=self.learning_rate,
             weight_decay=config.weight_decay,
         )
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(

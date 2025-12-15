@@ -65,21 +65,21 @@ def train_models(img_loaders, audio_loaders):
     audio_train, audio_val, audio_test = audio_loaders
 
     models_config = [
-        ("CNN", CustomCNN(), img_train, img_val, img_test),
-        ("ViT", VisionTransformer(), img_train, img_val, img_test),
-        ("RNN", AudioRNN(), audio_train, audio_val, audio_test),
+        ("CNN", CustomCNN(), img_train, img_val, img_test, config.learning_rate),
+        ("ViT", VisionTransformer(), img_train, img_val, img_test, config.vit_learning_rate),
+        ("RNN", AudioRNN(), audio_train, audio_val, audio_test, config.learning_rate),
     ]
 
     trainers = {}
     val_metrics = {}
     test_metrics = {}
 
-    for name, model, train_loader, val_loader, test_loader in models_config:
+    for name, model, train_loader, val_loader, test_loader, lr in models_config:
         print(f"\n{'=' * 60}")
         print(f"Training {name}...")
         print(f"{'=' * 60}")
 
-        trainer = ModelTrainer(model, train_loader, val_loader, name.lower())
+        trainer = ModelTrainer(model, train_loader, val_loader, name.lower(), learning_rate=lr)
         val_metrics[name] = trainer.train()
 
         print(f"\nEvaluating {name} on test set...")
