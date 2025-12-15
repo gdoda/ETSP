@@ -2,10 +2,12 @@ import os
 import numpy as np
 import librosa
 import torchaudio
-import matplotlib.pyplot as plt
+from PIL import Image
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 from src.config import config
 
@@ -173,19 +175,25 @@ class AudioProcessor:
 
         return mfcc_features
 
-    def save_spectrogram_image(self, mel_spec, save_path):
-        """Saves the spectrogram as an image file."""
-        plt.figure(figsize=(10, 4))
-        plt.imshow(mel_spec, aspect="auto", origin="lower", cmap="viridis")
-        plt.axis("off")
-        plt.tight_layout(pad=0)
-        plt.savefig(save_path, bbox_inches="tight", pad_inches=0, dpi=100)
-        plt.close()
+    @staticmethod
+    def save_spectrogram_image(mel_spec, save_path):
+        """Saves the spectrogram as an image file using PIL (much faster than matplotlib)."""
+        # mel_spec is already normalized to [0, 1], scale to [0, 255]
+        img_array = (mel_spec * 255).astype(np.uint8)
+        # Flip vertically to match matplotlib's origin='lower' behavior
+        img_array = np.flipud(img_array)
+        img = Image.fromarray(img_array, mode="L")
+        img.save(save_path)
 
-    def process_dataset(self, input_dir, output_dir):
+    def process_dataset(self, input_dir, output_dir, num_workers=None):
         """
         Processes all .flac files in the input directory, converts them to
         spectrogram images, and returns a metadata list.
+
+        Args:
+            input_dir: Directory containing .flac files
+            output_dir: Directory to save spectrogram images
+            num_workers: Number of parallel workers (default: CPU count)
         """
         print("Processing ASVspoof2021_LA_eval dataset...")
 
@@ -195,44 +203,57 @@ class AudioProcessor:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        processed_data = []
         input_path = Path(input_dir)
 
         # Get all flac files
         audio_files = list(input_path.rglob("*.flac"))
         print(f"Found {len(audio_files)} audio files in eval dataset")
 
+        # Filter files that have labels and prepare work items
+        work_items = []
         skipped_no_label = 0
-
-        # Use tqdm for progress bar
-        for audio_file in tqdm(audio_files, desc="Processing files"):
-            # Get ground truth label
+        for audio_file in audio_files:
             label = self.get_label(audio_file.name)
             if label == -1:
                 skipped_no_label += 1
                 continue
-
-            audio = self.load_audio(str(audio_file), self.target_length)
-            if audio is None:
-                continue
-
-            mel_spec = self.create_mel_spectrogram(audio)
             img_path = output_path / audio_file.with_suffix(".png").name
-            self.save_spectrogram_image(mel_spec, str(img_path))
-
-            processed_data.append(
-                {
-                    "file_path": str(img_path),
-                    "raw_audio_path": str(audio_file),
-                    "label": label,
-                    "original_name": audio_file.name,
-                }
+            work_items.append(
+                (str(audio_file), str(img_path), label, self.target_length)
             )
 
         if skipped_no_label > 0:
             print(
-                f"Warning: Skipped {skipped_no_label} files without labels in protocol"
+                f"Warning: Skipping {skipped_no_label} files without labels in protocol"
             )
+
+        print(f"Processing {len(work_items)} files with labels...")
+
+        # Determine number of workers
+        if num_workers is None:
+            num_workers = min(multiprocessing.cpu_count(), 8)
+        print(f"Using {num_workers} parallel workers")
+
+        # Process in parallel
+        processed_data = []
+        failed = 0
+
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = {
+                executor.submit(_process_single_file, item): item for item in work_items
+            }
+
+            for future in tqdm(
+                as_completed(futures), total=len(futures), desc="Processing files"
+            ):
+                result = future.result()
+                if result is not None:
+                    processed_data.append(result)
+                else:
+                    failed += 1
+
+        if failed > 0:
+            print(f"Warning: {failed} files failed to process")
 
         print(f"Completed! Processed {len(processed_data)} files from eval dataset")
 
@@ -242,3 +263,68 @@ class AudioProcessor:
         print(f"Final dataset: {bonafide} bonafide, {spoof} spoof")
 
         return processed_data
+
+
+def _process_single_file(args):
+    """
+    Worker function to process a single audio file.
+    Must be defined at module level for pickling in multiprocessing.
+    """
+    audio_path, img_path, label, target_length = args
+
+    try:
+        # Load audio
+        waveform, sr = torchaudio.load(audio_path)
+
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+
+        # Resample if necessary
+        if sr != config.sample_rate:
+            resampler = torchaudio.transforms.Resample(sr, config.sample_rate)
+            waveform = resampler(waveform)
+
+        audio = waveform.squeeze().numpy()
+
+        # Pad or trim to target length
+        if len(audio) > target_length:
+            audio = audio[:target_length]
+        else:
+            padding = target_length - len(audio)
+            audio = np.pad(audio, (0, padding), mode="constant")
+
+        # Normalize audio
+        audio = audio / (np.max(np.abs(audio)) + 1e-8)
+
+        # Create mel spectrogram
+        mel_spec = librosa.feature.melspectrogram(
+            y=audio,
+            sr=config.sample_rate,
+            n_mels=config.n_mels,
+            hop_length=config.hop_length,
+            n_fft=config.n_fft,
+            fmin=config.fmin,
+            fmax=config.fmax,
+        )
+        log_mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
+
+        # Min-max normalization
+        log_mel_spec = (log_mel_spec - log_mel_spec.min()) / (
+            log_mel_spec.max() - log_mel_spec.min() + 1e-8
+        )
+
+        # Save as image using PIL (fast)
+        img_array = (log_mel_spec * 255).astype(np.uint8)
+        img_array = np.flipud(img_array)
+        img = Image.fromarray(img_array, mode="L")
+        img.save(img_path)
+
+        return {
+            "file_path": img_path,
+            "raw_audio_path": audio_path,
+            "label": label,
+            "original_name": Path(audio_path).name,
+        }
+    except Exception as general_error:
+        print(f"Error processing {audio_path}: {general_error}")
+        return None
