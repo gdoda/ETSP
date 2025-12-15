@@ -8,7 +8,7 @@ class Config:
     metadata_file = "data/processed_metadata.json"
     protocol_file = "data/trial_metadata.txt"  # ASVspoof protocol file with labels
     model_dir = "models"
-    report_file = "report/project_report.json"
+    report_file = model_dir + "/project_report.json"
 
     # Audio Processing
     sample_rate = 16000  # Hz
