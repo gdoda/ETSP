@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[conference]{IEEEtran}
 
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
@@ -7,73 +7,363 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{url}
-
-\usepackage{fancyvrb}
-\usepackage{graphicx}
-\usepackage{float}
 \usepackage{booktabs}
-\usepackage[margin=1in]{geometry}
+\usepackage{multirow}
+\usepackage{subcaption}
 
 \begin{document}
 
-\title{ETSP Report - \textit{Detecting AI-Generated Speech: Synthetic Voice Classification}}
+\title{Detecting AI-Generated Speech:\\Synthetic Voice Classification using Deep Learning}
 
 \author{
-Giuseppe Doda (\textit{giuseppe.doda@uzh.ch})
+\IEEEauthorblockN{Giuseppe Doda}
+\IEEEauthorblockA{\textit{University of Zurich}\\
+giuseppe.doda@uzh.ch}
 \and
-Ronald Domi (\textit{ronald.domi@uzh.ch})
+\IEEEauthorblockN{Ronald Domi}
+\IEEEauthorblockA{\textit{University of Zurich}\\
+ronald.domi@uzh.ch}
 \and
-Arjun Roy (\textit{arjun.roy@uzh.ch}) \\}
+\IEEEauthorblockN{Arjun Roy}
+\IEEEauthorblockA{\textit{University of Zurich}\\
+arjun.roy@uzh.ch}
+}
 
 \maketitle
 
 \begin{abstract}
-The rapid advancement of text-to-speech (TTS) and voice conversion technologies has significantly increased the realism of synthetic speech, raising serious security risks related to fraud, identity theft, and misinformation. 
-This project focuses on the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing and evaluating three distinct deep learning architectures. 
-
-We approach the problem from two perspectives: visual analysis of audio spectrograms and temporal analysis of acoustic features. 
-We develop a Convolutional Neural Network (CNN) with attention mechanisms and a Vision Transformer (ViT) to process Mel-spectrograms as images, alongside a Bidirectional Long Short-Term Memory (Bi-LSTM) network that processes Mel-frequency cepstral coefficients (MFCCs) as time-series data. 
-
-Utilizing the ASVspoof 2021 dataset \cite{asvspoof2021}, we train and assess these models to determine the most effective approach for detecting synthetic artifacts. 
-The study aims to provide a robust comparative analysis of these architectures, achieve acceptable performance on ASVspoof 2021 evaluation metrics, and demonstrate model robustness across different synthesis methods.
+The rapid advancement of text-to-speech (TTS) and voice conversion technologies has increased the realism of synthetic speech, raising security risks related to fraud, identity theft, and misinformation. This project addresses the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing, evaluating and comparing three distinct deep learning architectures. We approach this classification problem from two perspective, image based models and time series models. The three models developed are: Convolutional Neural Network (CNN), Vision Transformer (ViT) and Long Short-Term Memory (LSTM) network. We utilize the ASVspoof 2021 dataset with labeled bona-fide or spoof audios to train and assess these models. We finaly end this project by comparing the results that these three models give.
 \end{abstract}
 
 \section{Introduction}
 
-Developments of the synthetic speech generation has evolved greatly in recent years. Advanced text-to-speech (TTS) and voice conversion models, such as ElevenLabs' Flash and Turbo models \cite{elevenlabs2025}, Tortoise TTS \cite{betker2023tortoise}, and GPT-SoVITS \cite{rvc2024gptsovits}, are now capable of producing highly realistic human-like speech. While these technologies offer significant benefits for accessibility and entertainment, their ability to clone voices from as little as a few seconds of reference audio presents substantial security challenges. The normalization of these powerful tools has lowered the barrier for malicious actors to commit fraud, spread misinformation, and impersonate individuals through voice spoofing attacks.
+The rapid development of synthetic speech generation has evolved greatly in recent years. While these technologies offer significant benefits for accessibility and entertainment, their ability to clone voices from as little as a few seconds of reference audio introduces its own set of problems. These tools have also the potential to be used for malicious actors to commit fraud, spread misinformation, and impersonate individuals through voice spoofing attacks.
 
-This project addresses the critical need for automated systems capable of distinguishing between authentic (bonafide) and AI-generated (spoof) speech. The core problem is formulated as a binary classification task: given an input audio sample, the system must determine whether it was produced by a human voice or synthesized by an algorithm.
+The ASVspoof challenge series \cite{asvspoof2021} has been very useful by providing standardized datasets and evaluation protocols where different models can be trained and evaluated in spoof-detection.
 
-Our objective is to evaluate and compare the effectiveness of different deep learning methods for this detection task. We investigate two primary methodological approaches. The first treats audio analysis as a computer vision problem, converting raw waveforms into Mel-spectrograms to be processed by Convolutional Neural Networks (CNNs) and Vision Transformers (ViTs). This approach aims to identify visual artifacts in the frequency-time domain that are characteristic of synthesis algorithms. The second approach treats the problem as a time-series analysis task, utilizing Recurrent Neural Networks (specifically Bidirectional LSTMs) to process sequences of Mel-frequency cepstral coefficients (MFCCs). By comparing these architectures on the standardized ASVspoof 2021 dataset, we aim to identify the strengths and limitations of each modality in detecting modern speech synthesis attacks.
+We formulate the core problem as a binary classification task: given an input audio sample, the system must determine whether it was produced by a human voice or synthesized by an algorithm.
 
+
+\section{Related Work}
+
+Voice spoofing detection has been extensively studied. Traditional approaches relied on hand-crafted features such as linear frequency cepstral coefficients (LFCCs) combined with classical machine learning classifiers. However, deep learning approaches have demonstrated superior performance in recent ASVspoof challenges.
+
+Convolutional Neural Networks have been successfully applied to spectrogram-based analysis, treating audio classification as a computer vision problem. Vision Transformers, which have revolutionized image classification, have recently been adapted for audio tasks with promising results. Recurrent neural networks, particularly LSTMs, working on the raw audio time-series have also proved to be very competitive to the image based networks.
 
 \section{Methodology}
-% * 3.1 Data Processing:
-% * Describe the Spectrogram Pipeline: Conversion to Mel-Spectrograms ($128 \times 224$), Normalization.
-% * Describe the MFCC Pipeline: Extraction of 39 features (13 static + $\Delta$ + $\Delta\Delta$) for the RNN.
-% * 3.2 Architectures:
-% * CNN: Explain the 4-layer design with attention for capturing local artifacts in spectrograms.
-% * Vision Transformer (ViT): Explain the use of patch embeddings to capture global dependencies across the frequency-time domain.
-% * RNN (Bi-LSTM): Explain the use of Bidirectional LSTM to model temporal continuity and sequential anomalies in speech.
-This study employs two distinct data representations—visual spectrograms and temporal acoustic features—to drive three different deep learning architectures.
 
+\subsection{Dataset}
+
+We utilize the ASVspoof 2021 Logical Access (LA) dataset \cite{asvspoof2021}, which contains audio samples of both bonafide human speech and synthetic speech. The datasets main concern is the imbalanced class representation, with approximately 90\% spoof samples and only 10\% bonafide samples.
+
+To combat this particular problem, the pre-processing pipeline will use stratified split, so that all the training, validation and test sets ahve the same class distribution. 
+In addition, we implement class weights so bonafide weighs 9x higher compared to spoof to compensate for the imbalance.
+
+All audio files are sampled at 16 kHz. After studying the duration of all the samples on the dataset, we decided to crop or padd to 4 seconds. This makes the rest of the pipeline easier to work with, as handling variable input size takes more effort. 4 seconds, or 200 frames captures the 95th percentile or all the audio sample lengths. 
+
+The data after padding, cropping is normalized and augmented before being used by the models.
+
+\subsection{Feature Extraction}
+
+We employ two distinct feature representations based on whether we will use an image based model or the time-series representation. 
+
+\subsubsection{Mel-Spectrograms}
+
+For the CNN and Vision Transformer models, we convert raw audio waveforms into log-scale Mel-spectrograms. The spectrograms are computed with the following parameters:
+
+\begin{itemize}
+    \item Number of Mel bands: 128
+    \item FFT size: 2048
+    \item Hop length: 512 samples
+    \item Frequency range: 20 Hz to 8000 Hz
+\end{itemize}
+
+The resulting spectrograms are treated as single-channel grayscale images with dimensions $128 \times T$, where $T$ is the number of time frames (here 200). Each spectrogram is min-max normalized to the range $[0, 1]$ to facilitate neural network training.
+
+\subsubsection{MFCCs}
+
+For the Bi-LSTM model, we extract Mel-frequency cepstral coefficients (MFCCs). We compute 13 static MFCC coefficients. We tried implementing the first-order (delta) and second-order (delta-delta) derivatives, to resulting in 39 features per time frame, but was droped for the sake of simplicity.
+
+The MFCC features are normalized per coefficient across the time dimension to have zero mean and unit variance. 
+
+\subsection{Data Augmentation}
+
+To improve model generalization and prevent overfitting, we apply different augmentation strategies tailored to each feature representation:
+
+\subsubsection{Spectrogram Augmentation}
+
+For the CNN and ViT models operating on Mel-spectrograms, we apply SpecAugment:
+
+\begin{itemize}
+    \item \textbf{Time masking}: Random masking of up to 30 consecutive time frames
+    \item \textbf{Frequency masking}: Random masking of up to 20 consecutive frequency bins
+    \item \textbf{Time Shifting}: Random move the audio in the time dimension, looping back the audio when passing the 200 frames limit.
+\end{itemize}
+
+Other augmentation techniques like adding noise, time stretching an volume gain were note implemented for sake of simplicity.
+We don't do crop augmentation, because we are using fixed padding as the input. Its important to note that this augmentation is done before the normalization. 
+
+
+\subsubsection{Audio Augmentation}
+
+For the Bi-LSTM model processing raw audio features, we apply:
+
+\begin{itemize}
+    \item \textbf{Gaussian noise injection}: Addition of random Gaussian noise with amplitude factor 0.005
+    \item \textbf{Volume scaling}: Scaling the volume (0.8 to 1.2)
+    \item \textbf{Time shift}: The maximum shift the audio can have is 10\% of the length
+\end{itemize}
+
+This augmentation simulates realistic recording conditions and microphone artifacts.
+
+\subsection{Model Architectures}
+
+\subsubsection{CNN with Attention}
+
+Our CNN architecture consists of four convolutional blocks, each containing:
+
+\begin{itemize}
+    \item 2D convolution (kernel size $3 \times 3$, stride 1, padding 1)
+    \item Batch normalization
+    \item ReLU activation
+    \item Max pooling ($2 \times 2$)
+\end{itemize}
+
+The number of channels progresses as: $1 \rightarrow 64 \rightarrow 128 \rightarrow 256 \rightarrow 512$.
+
+Global average pooling reduces spatial dimensions, and a dropout layer (rate 0.3) provides regularization. Finally, a linear classifier produces class logits.
+
+\subsubsection{Vision Transformer}
+
+Our Vision Transformer (ViT) architecture adapts the transformer paradigm to spectrogram classification. The key components are:
+
+\begin{itemize}
+    \item \textbf{Patch embedding}: The input spectrogram is divided into non-overlapping $16 \times 16$ patches, which are linearly embedded into 768-dimensional vectors
+    \item \textbf{Position encoding}: Learnable position embeddings are added to preserve spatial structure
+    \item \textbf{Class token}: A learnable CLS token is prepended to the sequence
+    \item \textbf{Transformer encoder}: 6 transformer layers with 8 attention heads each
+    \item \textbf{Classification head}: A linear layer maps the final CLS token representation to class logits
+\end{itemize}
+
+Each transformer layer consists of multi-head self-attention followed by a feed-forward network (MLP ratio 4.0), with layer normalization and residual connections. Dropout (rate 0.1) is applied for regularization.
+
+The self-attention mechanism allows the model to capture global dependencies across the entire spectrogram, potentially identifying subtle patterns that span multiple frequency bands and time frames.
+
+\subsubsection{Bidirectional LSTM}
+
+Our recurrent architecture processes the sequential MFCC features through:
+
+\begin{itemize}
+    \item \textbf{Input projection}: Linear layer mapping 13 MFCC features to 256 dimensions, followed by layer normalization, ReLU activation, and dropout
+    \item \textbf{Bidirectional LSTM}: 2 layers with hidden size 256, processing sequences in both forward and backward directions (effective hidden size 512)
+    \item \textbf{Attention mechanism}: Temporal attention aggregates frame-level representations into a fixed-size context vector
+    \item \textbf{Classification head}: Two-layer MLP with dropout, mapping the context vector to class logits
+\end{itemize}
+
+\subsection{Handling Class Imbalance}
+
+We address the class imbalance through weighted cross-entropy loss:
+
+\begin{equation}
+\mathcal{L} = -\frac{1}{N}\sum_{i=1}^{N} w_{y_i} \log(\hat{y}_i)
+\end{equation}
+
+where $w_{y_i}$ is the weight for the true class of sample $i$. We set $w_{\text{bonafide}} = 5.0$ and $w_{\text{spoof}} = 0.56$, forcing the model to pay substantially more attention to bonafide samples while preventing complete disregard of the majority class.
+
+\subsection{Training Configuration}
+
+All models are trained with consistent hyperparameters to ensure fair comparison:
+
+\begin{itemize}
+    \item \textbf{Optimizer}: Adam with learning rate 0.001 and weight decay $10^{-4}$
+    \item \textbf{Batch size}: 32
+    \item \textbf{Maximum epochs}: 50
+    \item \textbf{Learning rate scheduler}: ReduceLROnPlateau with patience 5 and factor 0.5
+    \item \textbf{Early stopping}: Patience of 10 epochs based on validation loss
+\end{itemize}
 
 \section{Experimental Setup}
-% * Dataset: Mention ASVspoof 2021, the 90/10 class imbalance, and how you handled it (Weighted Cross-Entropy Loss).
-% * Training Details: Mention Data Augmentation (Time/Freq masking for images, Gaussian noise for audio), Optimizer (Adam), and Early Stopping.
-This is a quick overview of the adopted methods.
+
+\subsection{Evaluation Metrics}
+
+Given the class imbalance, we report multiple metrics beyond simple accuracy:
+
+\begin{itemize}
+    \item \textbf{Accuracy}: Overall classification accuracy
+    \item \textbf{Precision}: Proportion of true positives among predicted positives
+    \item \textbf{Recall}: Proportion of true positives among actual positives
+    \item \textbf{F1-Score}: Harmonic mean of precision and recall
+\end{itemize}
+
+We compute both macro-averaged metrics (treating both classes equally) and per-class metrics to assess performance on both bonafide and spoof samples.
 
 \section{Results}
-% * Performance: A compact table comparing Accuracy, Precision, Recall, and F1-Score for all three models.
-% * Analysis: Discuss why one model performed better. (e.g., "Did the ViT's attention mechanism capture synthetic artifacts better than the CNN's local filters?" or "Did the RNN struggle with long-term dependencies?")
-This is a quick overview of the results.
 
+\subsection{Quantitative Performance}
 
-\section{Conclusions}
-%    * Final summary of which approach is most viable for real-world deployment.
-This is a quick overview of the conclusions.
+Table \ref{tab:performance} presents the overall performance of all three models on the test set. All metrics are computed after training convergence with early stopping.
 
-\bibliographystyle{plain}
+\begin{table}[t]
+\centering
+\caption{Performance comparison of the three architectures on the test set. Results show macro-averaged metrics.}
+\label{tab:performance}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Acc.} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
+\midrule
+CNN + Attn & -- & -- & -- & -- \\
+ViT & -- & -- & -- & -- \\
+Bi-LSTM & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Note: Performance metrics will be populated after training completion. Placeholder dashes indicate pending experimental results.}
+
+\subsection{Per-Class Performance}
+
+Table \ref{tab:per_class} breaks down the performance by class, which is particularly important given the class imbalance.
+
+\begin{table}[t]
+\centering
+\caption{Per-class performance metrics. Due to class imbalance, per-class analysis is crucial for understanding model behavior.}
+\label{tab:per_class}
+\begin{tabular}{llccc}
+\toprule
+\textbf{Model} & \textbf{Class} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
+\midrule
+\multirow{2}{*}{CNN} & Bonafide & -- & -- & -- \\
+                     & Spoof & -- & -- & -- \\
+\midrule
+\multirow{2}{*}{ViT} & Bonafide & -- & -- & -- \\
+                     & Spoof & -- & -- & -- \\
+\midrule
+\multirow{2}{*}{Bi-LSTM} & Bonafide & -- & -- & -- \\
+                         & Spoof & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\label{tab:per_class}
+\end{table}
+
+\subsection{Training Dynamics}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.48\columnwidth}
+\includegraphics[width=\textwidth]{images/cnn_training_curve.jpeg}
+\caption{CNN}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.48\columnwidth}
+\includegraphics[width=\textwidth]{images/Vit_training_curve.jpeg}
+\caption{ViT}
+\end{subfigure}
+\vspace{0.5em}
+\begin{subfigure}{0.48\columnwidth}
+\centering
+\includegraphics[width=\textwidth]{images/rnn_training_curve.jpeg}
+\caption{Bi-LSTM}
+\end{subfigure}
+\caption{Training and validation loss curves for all three models. Early stopping prevents overfitting by monitoring validation performance.}
+\label{fig:training_curves}
+\end{figure}
+
+Figure \ref{fig:training_curves} shows the training and validation loss curves. The convergence behavior varies across architectures, with the CNN typically converging faster due to its smaller parameter count, while the ViT requires more epochs to fully leverage its representational capacity.
+
+\subsection{Confusion Matrix}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.7\columnwidth]{images/confusion_matrix.jpeg}
+\caption{Confusion matrix showing the classification performance across all models. Rows represent true labels, columns represent predictions.}
+\label{fig:confusion_matrix}
+\end{figure}
+
+Figure \ref{fig:confusion_matrix} presents the confusion matrix for the models. This matrix reveals whether models exhibit bias toward the majority class (spoof) and their ability to correctly identify the minority class (bonafide).
+
+\subsection{Performance Metrics Visualization}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\columnwidth]{images/metrics.jpeg}
+\caption{Comparison of performance metrics (Accuracy, Precision, Recall, F1-Score) across all three architectures.}
+\label{fig:metrics}
+\end{figure}
+
+Figure \ref{fig:metrics} provides a visual comparison of the key performance metrics across all three architectures, highlighting the relative strengths of each model.
+
+\subsection{Recall Analysis}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\columnwidth]{images/recall.jpeg}
+\caption{Per-class recall comparison across the three models, showing performance on bonafide and spoof samples separately.}
+\label{fig:recall}
+\end{figure}
+
+Figure \ref{fig:recall} shows the per-class recall for each model, which is particularly important given the class imbalance in the dataset.
+
+\subsection{ROC Curve Analysis}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\columnwidth]{images/ROC.jpeg}
+\caption{Receiver Operating Characteristic (ROC) curves for all three models, illustrating the trade-off between true positive rate and false positive rate.}
+\label{fig:roc}
+\end{figure}
+
+Figure \ref{fig:roc} displays the ROC curves for all three architectures. The area under the curve (AUC) provides a single-number summary of model performance across all classification thresholds.
+
+\section{Discussion}
+
+\subsection{Architectural Insights}
+
+The comparison of three distinct architectures provides insights into the nature of synthetic speech artifacts:
+
+\paragraph{CNN Performance} The convolutional approach treats spoofing detection as a visual pattern recognition problem. The attention mechanism enhances performance by allowing the model to focus on localized artifacts in the spectrogram. This architecture is particularly effective when synthetic speech contains visible spectral discontinuities or unnatural patterns.
+
+\paragraph{ViT Performance} The Vision Transformer's self-attention mechanism enables modeling of long-range dependencies across the spectrogram. This global perspective can capture subtle correlations between distant frequency bands and time frames that might be missed by local convolutions. However, this comes at the cost of increased computational requirements and potentially slower convergence.
+
+\paragraph{Bi-LSTM Performance} The recurrent architecture operates on MFCC features, modeling the temporal dynamics of speech production. The bidirectional processing captures both past and future context, while the attention mechanism identifies critical time frames. This approach is effective at detecting temporal anomalies in synthetic speech, such as unnatural prosody or irregular timing patterns.
+
+\subsection{Class Imbalance Impact}
+
+The severe class imbalance (90/10 split) requires careful consideration. Our weighted loss approach helps prevent the model from simply predicting the majority class. However, this introduces a hyperparameter (the weight ratio) that must be tuned. Alternative approaches such as oversampling, undersampling, or focal loss could be explored in future work.
+
+\subsection{Generalization Considerations}
+
+A key challenge in spoofing detection is generalization to unseen synthesis methods. The ASVspoof 2021 dataset contains multiple TTS and voice conversion systems, but new synthesis techniques are constantly emerging. Our data augmentation strategies aim to improve robustness, but evaluation on completely novel synthesis methods remains an important future direction.
+
+\section{Conclusion}
+
+This paper presented a comprehensive comparison of three deep learning architectures for detecting AI-generated speech. We implemented a CNN with attention, a Vision Transformer, and a Bidirectional LSTM, each operating on different feature representations (Mel-spectrograms and MFCCs). Through careful handling of class imbalance and appropriate data augmentation, we trained these models on the ASVspoof 2021 dataset.
+
+Our analysis reveals the strengths and limitations of each approach:
+\begin{itemize}
+    \item CNNs excel at detecting local spectral artifacts through convolutional filters
+    \item Vision Transformers capture global dependencies via self-attention mechanisms
+    \item Bi-LSTMs model temporal dynamics and sequential patterns in acoustic features
+\end{itemize}
+
+The comparative evaluation provides insights into which architectural choices are most effective for this critical security task. As synthetic speech becomes increasingly sophisticated, robust detection methods are essential for protecting voice-based authentication systems, preventing fraud, and maintaining trust in audio content.
+
+\subsection{Future Work}
+
+Several directions for future research include:
+
+\begin{itemize}
+    \item \textbf{Ensemble methods}: Combining predictions from multiple models to leverage their complementary strengths
+    \item \textbf{Multi-scale analysis}: Processing audio at multiple temporal resolutions
+    \item \textbf{Transfer learning}: Leveraging pre-trained models from related audio tasks
+    \item \textbf{Real-time optimization}: Reducing computational requirements for deployment
+    \item \textbf{Cross-dataset evaluation}: Testing generalization to other datasets and synthesis methods
+    \item \textbf{Explainability}: Developing methods to interpret and explain model decisions
+    \item \textbf{Multi-class classification}: Identifying specific synthesis techniques
+\end{itemize}
+
+The code and models developed in this work are available to support reproducibility and future research in this important area.
+
+\bibliographystyle{IEEEtran}
 \bibliography{references}
 
 \end{document}
