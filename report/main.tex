@@ -10,6 +10,20 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{subcaption}
+% \usepackage{url}  % Basic URLs
+\usepackage{hyperref}  % Clickable hyperlinks (recommended)
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+}
+\makeatletter
+\let\ps@IEEEtitlepagestyle\ps@plain
+\pagestyle{plain}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\makeatother
 
 \begin{document}
 
@@ -349,7 +363,9 @@ Our analysis reveals the strengths and limitations of each approach:
 
 The comparative evaluation provides insights into which architectural choices are most effective for this critical security task. As synthetic speech becomes increasingly sophisticated, robust detection methods are essential for protecting voice-based authentication systems, preventing fraud, and maintaining trust in audio content.
 
-The code and models developed in this work are available to support reproducibility and future research in this important area.
+The code and models developed in this work are available at 
+\href{https://github.com/gdoda/ETSP/tree/main}{\textit{https://github.com/gdoda/ETSP/tree/main}} to support reproducibility and future research in this important area.
+
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
