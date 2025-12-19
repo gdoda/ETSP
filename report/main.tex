@@ -32,7 +32,7 @@ arjun.roy@uzh.ch}
 \maketitle
 
 \begin{abstract}
-The rapid advancement of text-to-speech (TTS) and voice conversion technologies has increased the realism of synthetic speech, raising security risks related to fraud, identity theft, and misinformation. This project addresses the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing, evaluating and comparing three distinct deep learning architectures. We approach this classification problem from two perspective, image based models and time series models. The three models developed are: Convolutional Neural Network (CNN), Vision Transformer (ViT) and Long Short-Term Memory (LSTM) network. We utilize the ASVspoof 2021 dataset with labeled bona-fide or spoof audios to train and assess these models. Finally, we compare the results given by the three models used in the project.
+The rapid advancement of text-to-speech (TTS) and voice conversion technologies has increased the realism of synthetic speech \cite{articletts}, raising security risks related to fraud, identity theft, and misinformation. This project addresses the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing, evaluating and comparing three distinct deep learning architectures. We approach this classification problem from two perspective, image based models and time series models. The three models developed are: Convolutional Neural Network (CNN), Vision Transformer (ViT) and Long Short-Term Memory (LSTM) network. We utilize the ASVspoof 2021 dataset with labeled bona-fide or spoof audios to train and assess these models. Finally, we compare the results given by the three models used in the project.
 \end{abstract}
 
 \section{Introduction}
@@ -48,7 +48,7 @@ We formulate the core problem as a binary classification task: given an input au
 
 Voice spoofing detection has been extensively studied. Traditional approaches relied on hand-crafted features such as linear frequency cepstral coefficients (LFCCs) combined with classical machine learning classifiers. However, deep learning approaches have demonstrated superior performance in recent ASVspoof challenges.
 
-Convolutional Neural Networks have been successfully applied to spectrogram-based analysis, treating audio classification as a computer vision problem. Vision Transformers, which have revolutionized image classification, have recently been adapted for audio tasks with promising results. Recurrent neural networks, particularly LSTMs, working on the raw audio time-series have also proved to be very competitive to the image based networks.
+Convolutional Neural Networks \cite{inproceedingscnn} have been successfully applied to spectrogram-based analysis, treating audio classification as a computer vision problem. Vision Transformers \cite{dosovitskiy2021imageworth16x16words}, which have revolutionized image classification, have recently been adapted for audio tasks with promising results. Recurrent neural networks, particularly LSTMs, working on the raw audio time-series \cite{articlernn} have also proved to be very competitive to the image based networks.
 
 \section{Methodology}
 
@@ -218,11 +218,13 @@ Bi-LSTM & 0.9657 & 0.9666 & 0.9657 & 0.9661 \\
 \end{tabular}
 \end{table}
 
-\textit{Note: Performance metrics will be populated after training completion. Placeholder dashes indicate pending experimental results.}
+% \textit{Note: Performance metrics will be populated after training completion. Placeholder dashes indicate pending experimental results.}
 
 \subsection{Per-Class Performance}
 
 Table \ref{tab:per_class} breaks down the performance by class, which is particularly important given the class imbalance.
+
+We do acknowledge issues with the ViT model as it was too large, data for bonafide was inadequate, and additionally we lacked sufficient compute resources to train on a larger scale. It might have been possible to train a smaller model but with inadequate compute resources we cannot be sure it will have worked.
 
 \begin{table}[t]
 \centering
@@ -290,7 +292,7 @@ Figure \ref{fig:confusion_matrix} presents the confusion matrix for the models. 
 \label{fig:metrics}
 \end{figure}
 
-Figure \ref{fig:metrics} provides a visual comparison of the key performance metrics across all three architectures, highlighting the relative strengths of each model.
+Figure \ref{fig:metrics} provides a visual comparison of the key performance metrics across all three architectures, highlighting the relative strengths of each model.  
 
 \subsection{Recall Analysis}
 
