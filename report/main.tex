@@ -32,7 +32,7 @@ arjun.roy@uzh.ch}
 \maketitle
 
 \begin{abstract}
-The rapid advancement of text-to-speech (TTS) and voice conversion technologies has increased the realism of synthetic speech, raising security risks related to fraud, identity theft, and misinformation. This project addresses the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing, evaluating and comparing three distinct deep learning architectures. We approach this classification problem from two perspective, image based models and time series models. The three models developed are: Convolutional Neural Network (CNN), Vision Transformer (ViT) and Long Short-Term Memory (LSTM) network. We utilize the ASVspoof 2021 dataset with labeled bona-fide or spoof audios to train and assess these models. We finaly end this project by comparing the results that these three models give.
+The rapid advancement of text-to-speech (TTS) and voice conversion technologies has increased the realism of synthetic speech, raising security risks related to fraud, identity theft, and misinformation. This project addresses the challenge of distinguishing between bona fide (human) and spoofed (AI-generated) audio by implementing, evaluating and comparing three distinct deep learning architectures. We approach this classification problem from two perspective, image based models and time series models. The three models developed are: Convolutional Neural Network (CNN), Vision Transformer (ViT) and Long Short-Term Memory (LSTM) network. We utilize the ASVspoof 2021 dataset with labeled bona-fide or spoof audios to train and assess these models. Finally, we compare the results given by the three models used in the project.
 \end{abstract}
 
 \section{Introduction}
@@ -56,10 +56,10 @@ Convolutional Neural Networks have been successfully applied to spectrogram-base
 
 We utilize the ASVspoof 2021 Logical Access (LA) dataset \cite{asvspoof2021}, which contains audio samples of both bonafide human speech and synthetic speech. The datasets main concern is the imbalanced class representation, with approximately 90\% spoof samples and only 10\% bonafide samples.
 
-To combat this particular problem, the pre-processing pipeline will use stratified split, so that all the training, validation and test sets ahve the same class distribution. 
-In addition, we implement class weights so bonafide weighs 9x higher compared to spoof to compensate for the imbalance.
+To combat this particular problem, the pre-processing pipeline will use stratified split, so that all the training, validation and test sets have the same class distribution. 
+In addition, we implement class weights, so we weigh bonafide 9x higher compared to spoof to compensate for class imbalance.
 
-All audio files are sampled at 16 kHz. After studying the duration of all the samples on the dataset, we decided to crop or padd to 4 seconds. This makes the rest of the pipeline easier to work with, as handling variable input size takes more effort. 4 seconds, or 200 frames captures the 95th percentile or all the audio sample lengths. 
+All audio files are sampled at 16 kHz. After studying the duration of all the samples on the dataset, we decided to crop or pad to 4 seconds. This makes the rest of the pipeline easier to work with, as handling variable input size takes more effort. 4 seconds, or 200 frames captures the 95th percentile or all the audio sample lengths. 
 
 The data after padding, cropping is normalized and augmented before being used by the models.
 
@@ -82,7 +82,7 @@ The resulting spectrograms are treated as single-channel grayscale images with d
 
 \subsubsection{MFCCs}
 
-For the Bi-LSTM model, we extract Mel-frequency cepstral coefficients (MFCCs). We compute 13 static MFCC coefficients. We tried implementing the first-order (delta) and second-order (delta-delta) derivatives, to resulting in 39 features per time frame, but was droped for the sake of simplicity.
+For the Bi-LSTM model, we extract Mel-frequency cepstral coefficients (MFCCs). We compute 13 static MFCC coefficients. For the sake of simplicity, we did not include first-order (delta) and second-order (delta-delta) derivatives, resulting in 39 features per time frame, in our implementation.
 
 The MFCC features are normalized per coefficient across the time dimension to have zero mean and unit variance. 
 
@@ -101,7 +101,7 @@ For the CNN and ViT models operating on Mel-spectrograms, we apply SpecAugment:
 \end{itemize}
 
 Other augmentation techniques like adding noise, time stretching an volume gain were note implemented for sake of simplicity.
-We don't do crop augmentation, because we are using fixed padding as the input. Its important to note that this augmentation is done before the normalization. 
+Since we used fixed padding as the input, we skipped crop augmentation. It is important to note that this augmentation is done before normalization. 
 
 
 \subsubsection{Audio Augmentation}
@@ -168,7 +168,7 @@ We address the class imbalance through weighted cross-entropy loss:
 \mathcal{L} = -\frac{1}{N}\sum_{i=1}^{N} w_{y_i} \log(\hat{y}_i)
 \end{equation}
 
-where $w_{y_i}$ is the weight for the true class of sample $i$. We set $w_{\text{bonafide}} = 5.0$ and $w_{\text{spoof}} = 0.56$, forcing the model to pay substantially more attention to bonafide samples while preventing complete disregard of the majority class.
+where $w_{y_i}$ is the weight for the true class of sample $i$. We set $w_{\text{bonafide}} = 5.0$ and $w_{\text{spoof}} = 0.56$, forcing the model to pay substantially more attention to bonafide samples, while also preventing it from completely disregarding the majority spoof class.
 
 \subsection{Training Configuration}
 
@@ -211,9 +211,9 @@ Table \ref{tab:performance} presents the overall performance of all three models
 \toprule
 \textbf{Model} & \textbf{Acc.} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
 \midrule
-CNN + Attn & -- & -- & -- & -- \\
-ViT & -- & -- & -- & -- \\
-Bi-LSTM & -- & -- & -- & -- \\
+CNN + Attn & 0.9891 & 0.9892 & 0.9891 & 0.9891 \\
+ViT & 0.8974 & 0.8053 & 0.8974 & 0.8488 \\
+Bi-LSTM & 0.9657 & 0.9666 & 0.9657 & 0.9661 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -232,14 +232,14 @@ Table \ref{tab:per_class} breaks down the performance by class, which is particu
 \toprule
 \textbf{Model} & \textbf{Class} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
 \midrule
-\multirow{2}{*}{CNN} & Bonafide & -- & -- & -- \\
-                     & Spoof & -- & -- & -- \\
+\multirow{2}{*}{CNN} & Bonafide & 0.9429 & 0.9516 & 0.9472 \\
+                     & Spoof & 0.9945 & 0.9934 & 0.9939 \\
 \midrule
-\multirow{2}{*}{ViT} & Bonafide & -- & -- & -- \\
-                     & Spoof & -- & -- & -- \\
+\multirow{2}{*}{ViT} & Bonafide & 0.0000 & 0.0000 & 0.0000 \\
+                     & Spoof & 0.8974 & 1.0000 & 0.9459 \\
 \midrule
-\multirow{2}{*}{Bi-LSTM} & Bonafide & -- & -- & -- \\
-                         & Spoof & -- & -- & -- \\
+\multirow{2}{*}{Bi-LSTM} & Bonafide & 0.8162 & 0.8594 & 0.8373 \\
+                         & Spoof & 0.8974 & 0.9779 & 0.9808 \\
 \bottomrule
 \end{tabular}
 \label{tab:per_class}
@@ -328,7 +328,7 @@ The comparison of three distinct architectures provides insights into the nature
 
 \subsection{Class Imbalance Impact}
 
-The severe class imbalance (90/10 split) requires careful consideration. Our weighted loss approach helps prevent the model from simply predicting the majority class. However, this introduces a hyperparameter (the weight ratio) that must be tuned. Alternative approaches such as oversampling, undersampling, or focal loss could be explored in future work.
+The severe class imbalance (90/10 split) requires careful consideration. Our weighted loss approach prevents the model from simply predicting the majority spoof class most of the time. However, this introduces a hyperparameter (the weight ratio) that must be tuned. We believe our approach is robust while acknowledging alternatives such as oversampling, undersampling, and focal loss could also be explored. 
 
 \subsection{Generalization Considerations}
 
@@ -346,20 +346,6 @@ Our analysis reveals the strengths and limitations of each approach:
 \end{itemize}
 
 The comparative evaluation provides insights into which architectural choices are most effective for this critical security task. As synthetic speech becomes increasingly sophisticated, robust detection methods are essential for protecting voice-based authentication systems, preventing fraud, and maintaining trust in audio content.
-
-\subsection{Future Work}
-
-Several directions for future research include:
-
-\begin{itemize}
-    \item \textbf{Ensemble methods}: Combining predictions from multiple models to leverage their complementary strengths
-    \item \textbf{Multi-scale analysis}: Processing audio at multiple temporal resolutions
-    \item \textbf{Transfer learning}: Leveraging pre-trained models from related audio tasks
-    \item \textbf{Real-time optimization}: Reducing computational requirements for deployment
-    \item \textbf{Cross-dataset evaluation}: Testing generalization to other datasets and synthesis methods
-    \item \textbf{Explainability}: Developing methods to interpret and explain model decisions
-    \item \textbf{Multi-class classification}: Identifying specific synthesis techniques
-\end{itemize}
 
 The code and models developed in this work are available to support reproducibility and future research in this important area.
 

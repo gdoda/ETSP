@@ -656,22 +656,3 @@ data/
 ├── mel_spectrograms/     # Generated spectrogram images
 └── processed_metadata.json  # File-label mapping
 ```
-
-**project_report.json example:**
-
-```json
-{
-  "project_title": "Synthetic Voice Detection System",
-  "dataset_used": "ASVspoof2021_LA_eval",
-  "total_samples": 50000,
-  "model_performance": {
-    "CNN": {
-      "best_validation_accuracy": "92.50%",
-      "best_epoch": 15,
-      "f1_score": "0.9180"
-    },
-    "Vision_Transformer": {...},
-    "RNN": {...}
-  }
-}
-```
